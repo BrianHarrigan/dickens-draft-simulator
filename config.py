@@ -46,11 +46,26 @@ MANAGER_TENDENCIES = {
 }
 
 TARGET_PLAYERS = [
-    "George Pickens", "Parker Washington", "Wan'Dale Robinson"
+    "George Pickens", 
+    "Parker Washington", 
+    "Wan'Dale Robinson",
+    "De'Zhaun Stribling"
 ]
 
 SLEEPER_PLAYERS = [
-    "Wan'Dale Robinson"
+    "Wan'Dale Robinson",
+    "Denzel Boston",
+    "Ja'Kobi Lane",
+    "Zachariah Branch",
+    "Malachi Fields",
+    "Pat Bryant",
+    "De'Zhaun Stribling",
+    "Jayden Reed",
+    "Romeo Doubs",
+    "Tre Tucker",
+    "Tyler Shough",
+    "Dallas Goedert",
+    "Tank Dell"
 ]
 
 def get_color(pos):

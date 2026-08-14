@@ -12,12 +12,27 @@ from bs4 import BeautifulSoup
 from config import (
     CSV_FILENAME, EXCEL_FILENAME, TEAMS, DRAFT_ORDER,
     TEAM_NFL_BIASES, MANAGER_TENDENCIES, get_color,
-    normalize_name, make_short_name, TARGET_PLAYERS
+    normalize_name, make_short_name, TARGET_PLAYERS, SLEEPER_PLAYERS
 )
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 st.set_page_config(page_title="Dickens League Draft Simulator", layout="wide")
 
+# --- 📱 MOBILE CSS UPDATE ---
+st.markdown("""
+<style>
+    /* Applies ONLY to screens smaller than 768px (Mobile Phones) */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding: 1rem 0.5rem !important;
+        }
+        button {
+            min-height: 44px !important;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+# ----------------------------
 
 def load_base_excel():
     if os.path.exists(EXCEL_FILENAME):
@@ -300,8 +315,9 @@ with col_left:
         display_df = display_df[display_df['Player'].str.contains(search_query, case=False, na=False)].reset_index(drop=True)
         
     with st.container(height=680):
-        # Create a normalized list of targets for bulletproof matching
+        # Normalized lists for matching
         normalized_targets = [normalize_name(tp) for tp in TARGET_PLAYERS]
+        normalized_sleepers = [normalize_name(sp) for sp in SLEEPER_PLAYERS]
         
         for idx, row in display_df.head(50).iterrows():
             active_adp = row['FFC ADP'] if sort_option == "FFC ADP" else row['CBS ADP']
@@ -315,11 +331,30 @@ with col_left:
             cbs_rank_text = f"<b>Rank:</b> {int(row.get('CBS Rank', 1))}" if sort_option == "CBS Rank" else f"Rank: {int(row.get('CBS Rank', 1))}"
             ffc_adp_text = f"<b>FFC ADP:</b> {row.get('FFC ADP', 0.0)}" if sort_option == "FFC ADP" else f"FFC ADP: {row.get('FFC ADP', 0.0)}"
 
-            # --- HIGHLIGHT TARGET LOGIC ---
-            is_target = normalize_name(row['Player']) in normalized_targets
-            border_style = "3px solid #ff3333" if is_target else "1px solid #a0aab5"
-            box_shadow = "box-shadow: 0px 0px 8px 1px rgba(255, 51, 51, 0.6) !important;" if is_target else ""
-            target_icon = " 🎯" if is_target else ""
+            # --- HIGHLIGHT TARGET & SLEEPER LOGIC ---
+            norm_player = normalize_name(row['Player'])
+            is_target = norm_player in normalized_targets
+            is_sleeper = norm_player in normalized_sleepers
+
+            icons = ""
+            if is_target:
+                icons += " 🎯"
+            if is_sleeper:
+                icons += " 😴"
+
+            # Style priority: Both (Purple Glow), Target (Red Glow), Sleeper (Blue Glow), Default
+            if is_target and is_sleeper:
+                border_style = "3px solid #9c27b0"
+                box_shadow = "box-shadow: 0px 0px 8px 1px rgba(156, 39, 176, 0.6) !important;"
+            elif is_target:
+                border_style = "3px solid #ff3333"
+                box_shadow = "box-shadow: 0px 0px 8px 1px rgba(255, 51, 51, 0.6) !important;"
+            elif is_sleeper:
+                border_style = "3px solid #1e88e5"
+                box_shadow = "box-shadow: 0px 0px 8px 1px rgba(30, 136, 229, 0.6) !important;"
+            else:
+                border_style = "1px solid #a0aab5"
+                box_shadow = ""
 
             card_key = f"card_{idx}"
             st.markdown(f"""
@@ -340,7 +375,7 @@ with col_left:
                 with c1:
                     st.markdown(f"""
                     <div style='font-size: 12px; color: #000000; line-height: 1.4; margin-top: 4px;'>
-                        <b style='font-size: 14px;'>{row['Player']}{target_icon}</b> ({row['Position']} - {row['NFLTeam']})<br>
+                        <b style='font-size: 14px;'>{row['Player']}{icons}</b> ({row['Position']} - {row['NFLTeam']})<br>
                         {cbs_adp_text} ({rd}.{pk}) | {ffc_adp_text} | {cbs_rank_text}
                     </div>
                     """, unsafe_allow_html=True)
@@ -405,7 +440,9 @@ with col_board:
 
     st.markdown("---")
 
-    table_html = "<table style='width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>"
+    # --- 📱 MOBILE TABLE WRAPPER UPDATE ---
+    table_html = "<div style='overflow-x: auto; width: 100%; border: 1px solid #ccc; border-radius: 4px;'>"
+    table_html += "<table style='min-width: 750px; width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>"
     
     # --- TABLE HEADER ---
     table_html += "<tr>"
@@ -431,8 +468,9 @@ with col_board:
                 table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 2px; height: 45px;'><i>Pick {actual_pick_num}</i></td>"
         table_html += "</tr>"
 
-    table_html += "</table>"
+    table_html += "</table></div>"
     st.markdown(table_html, unsafe_allow_html=True)
+    # --------------------------------------
 
 # --- RIGHT COLUMN: Slampigskins Roster & Bench ---
 with col_roster:

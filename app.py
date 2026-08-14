@@ -1,0 +1,466 @@
+import streamlit as st
+import pandas as pd
+import random
+import math
+import os
+import requests
+import urllib3
+import re
+from io import StringIO
+from bs4 import BeautifulSoup
+
+from config import (
+    CSV_FILENAME, EXCEL_FILENAME, TEAMS, DRAFT_ORDER,
+    TEAM_NFL_BIASES, MANAGER_TENDENCIES, get_color,
+    normalize_name, make_short_name
+)
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+st.set_page_config(page_title="Dickens League Draft Simulator", layout="wide")
+
+
+def load_base_excel():
+    if os.path.exists(EXCEL_FILENAME):
+        try:
+            xls = pd.ExcelFile(EXCEL_FILENAME)
+            if 'FFC ADP' in xls.sheet_names:
+                ffc_df = pd.read_excel(xls, 'FFC ADP', skiprows=7)
+                ffc_df = ffc_df.dropna(subset=['Name', 'Position', 'Overall'])
+                players = []
+                for idx, row in ffc_df.iterrows():
+                    players.append({
+                        "Rank": int(idx + 1),
+                        "Player": str(row['Name']).strip(),
+                        "Position": str(row['Position']).strip().upper(),
+                        "NFLTeam": str(row['Team']).strip() if 'Team' in ffc_df.columns else "FA",
+                        "CBS ADP": float(row['Overall']),
+                        "CBS Rank": float(idx + 1),
+                        "FFC ADP": float(row['Overall'])
+                    })
+                df = pd.DataFrame(players)
+                df.to_csv(CSV_FILENAME, index=False)
+                return df
+        except Exception:
+            pass
+    return generate_fallback_csv()
+
+
+def generate_fallback_csv():
+    fallback_raw = "Jahmyr Gibbs RB DET, Bijan Robinson RB ATL, Puka Nacua WR LAR, Ja'Marr Chase WR CIN, Christian McCaffrey RB SF"
+    players = []
+    for idx, item in enumerate(fallback_raw.split(','), 1):
+        parts = item.strip().rsplit(' ', 2)
+        players.append({
+            "Rank": idx, 
+            "Player": parts[0], 
+            "Position": parts[1].strip().upper(), 
+            "NFLTeam": parts[2] if len(parts) > 2 else "FA", 
+            "CBS ADP": float(idx), 
+            "CBS Rank": float(idx), 
+            "FFC ADP": float(idx)
+        })
+    df = pd.DataFrame(players)
+    df.to_csv(CSV_FILENAME, index=False)
+    return df
+
+
+def process_cbs_html_content(html_content):
+    cbs_rank_map = {}
+    soup = BeautifulSoup(html_content, 'html.parser')
+    
+    author_blocks = soup.find_all('div', class_='author-block')
+    consensus_container = None
+    for block in author_blocks:
+        if 'consensus' in block.text.lower():
+            consensus_container = block.find_parent('div', class_='experts-column')
+            break
+            
+    target_area = consensus_container if consensus_container else soup
+    rows = target_area.find_all('div', class_='player-row')
+    
+    for row in rows:
+        rank_elem = row.find('div', class_='rank')
+        link_elem = row.find('a')
+        
+        if rank_elem and link_elem:
+            try:
+                rank_val = float(rank_elem.text.strip())
+                href = link_elem.get('href', '')
+                
+                slug_match = re.search(r'/nfl/players/\d+/([^/]+)/fantasy/', href)
+                if slug_match:
+                    full_name = normalize_name(slug_match.group(1).replace('-', ' '))
+                    cbs_rank_map[full_name] = rank_val
+            except ValueError:
+                continue
+                
+    return cbs_rank_map
+
+
+def update_live_adps(uploaded_html_file=None):
+    st.info("Fetching live ADP data from FFC/CBS and parsing uploaded HTML...")
+    ffc_url = "https://fantasyfootballcalculator.com/adp/csv/ppr.csv"
+    cbs_adp_url = "https://www.cbssports.com/fantasy/football/draft/averages/ppr/both/h2h/all/"
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    cbs_rank_map = {}
+    cbs_adp_map = {}
+    
+    # 1. Parse uploaded CBS Rankings HTML
+    if uploaded_html_file is not None:
+        try:
+            html_content = uploaded_html_file.read().decode('utf-8')
+            cbs_rank_map = process_cbs_html_content(html_content)
+            st.success(f"Parsed {len(cbs_rank_map)} CBS Consensus ranks from HTML!")
+        except Exception as e:
+            st.warning(f"Could not parse uploaded CBS HTML: {e}")
+
+    # 2. Scrape CBS ADP for distinct CBS ADP numbers
+    try:
+        cbs_resp = requests.get(cbs_adp_url, headers=headers, verify=False, timeout=10)
+        cbs_tables = pd.read_html(StringIO(cbs_resp.text), flavor='lxml')
+        if cbs_tables:
+            for index, row in cbs_tables[0].iterrows():
+                adp_val = row.get('Avg Pos', index + 1)
+                parts = str(row['Player']).split()
+                name = ""
+                for i, part in enumerate(parts):
+                    if part in ["QB", "RB", "WR", "TE", "K", "DST"]:
+                        name = " ".join(parts[:i])
+                        break
+                if name:
+                    cbs_adp_map[normalize_name(name)] = float(adp_val)
+    except Exception:
+        st.warning("Could not reach CBS ADP live page. Defaulting CBS ADP to FFC ADP where missing.")
+
+    # 3. Scrape FFC and assemble master CSV
+    try:
+        ffc_resp = requests.get(ffc_url, headers=headers, verify=False, timeout=15)
+        if ffc_resp.status_code == 200:
+            ffc_df = pd.read_csv(StringIO(ffc_resp.text), skiprows=7)
+            
+            players = []
+            for idx, row in ffc_df.iterrows():
+                if pd.isna(row.get('Name')): continue
+                ffc_name = str(row['Name']).strip()
+                clean_n = normalize_name(ffc_name)
+                
+                ffc_adp = float(row.get('Overall', idx + 1))
+                cbs_adp = cbs_adp_map.get(clean_n, ffc_adp)
+                cbs_rank = cbs_rank_map.get(clean_n, 999.0)
+                
+                players.append({
+                    "Rank": int(idx + 1),
+                    "Player": ffc_name,
+                    "Position": str(row['Position']).strip().upper(),
+                    "NFLTeam": str(row['Team']).strip() if 'Team' in ffc_df.columns else "FA",
+                    "CBS ADP": cbs_adp,
+                    "CBS Rank": cbs_rank,
+                    "FFC ADP": ffc_adp
+                })
+            
+            master_df = pd.DataFrame(players)
+            master_df.to_csv(CSV_FILENAME, index=False)
+            st.cache_data.clear()
+            return True
+    except Exception as e:
+        st.error(f"Error updating database: {e}")
+        return False
+
+
+@st.cache_data
+def load_data():
+    if not os.path.exists(CSV_FILENAME):
+        return load_base_excel()
+    try:
+        df = pd.read_csv(CSV_FILENAME)
+    except Exception:
+        return load_base_excel()
+        
+    for col in ['CBS ADP', 'CBS Rank', 'FFC ADP', 'Rank']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(999.0)
+            
+    return df
+
+
+if 'draft_history' not in st.session_state:
+    st.session_state.draft_history = []
+if 'current_pick' not in st.session_state:
+    st.session_state.current_pick = 1
+if 'available_players' not in st.session_state:
+    st.session_state.available_players = load_data()
+if 'time_left' not in st.session_state:
+    st.session_state.time_left = 120
+
+
+def execute_cpu_pick(team_name, current_pick_num):
+    df_avail = st.session_state.available_players.copy()
+    team_roster = [p['Position'] for p in st.session_state.draft_history if p['FantasyTeam'] == team_name]
+    
+    needs = {"QB": 1.0, "RB": 1.0, "WR": 1.0, "TE": 1.0, "K": 0.5, "DST": 0.5}
+    for pos in ["QB", "TE"]:
+        if team_roster.count(pos) >= 1: needs[pos] = 0.3
+    if current_pick_num > 84 and team_roster.count("QB") == 0: needs["QB"] = 1.8
+    if team_roster.count("RB") >= 3: needs["RB"] = 0.7
+    if team_roster.count("WR") >= 3: needs["WR"] = 0.7
+    
+    if current_pick_num > 144:
+        if team_roster.count("K") == 0: needs["K"] = 2.0
+        if team_roster.count("DST") == 0: needs["DST"] = 2.0
+    
+    sigma = 1.5 if current_pick_num <= 48 else (3.0 if current_pick_num <= 120 else 5.5)
+    pool_size = 4 if current_pick_num <= 48 else (8 if current_pick_num <= 120 else 16)
+        
+    bias_info = TEAM_NFL_BIASES.get(team_name, {"teams": [], "boost": 1.0})
+    favored_nfl_teams = bias_info["teams"]
+    nfl_boost_val = bias_info["boost"]
+    
+    scores = []
+    top_candidates = df_avail.head(pool_size)
+    for _, row in top_candidates.iterrows():
+        pos = row['Position']
+        nfl_tm = str(row['NFLTeam'])
+        raw_bias = MANAGER_TENDENCIES.get(team_name, {}).get(pos, 1.0)
+        bias = 1.0 + (raw_bias - 1.0) * 0.3
+        need = needs.get(pos, 1.0)
+        
+        adp = row['CBS ADP']
+        w_adp = math.exp(-((adp - current_pick_num)**2) / (2 * (sigma**2))) if adp >= current_pick_num else 1.0
+        nfl_boost = nfl_boost_val if nfl_tm in favored_nfl_teams else 1.0
+        scores.append(w_adp * need * bias * nfl_boost)
+        
+    chosen_index = random.choices(range(len(scores)), weights=scores, k=1)[0]
+    return top_candidates.iloc[chosen_index]
+
+
+# --- TOP HEADER & SETTINGS POPOVER ---
+head_col1, head_col2 = st.columns([5, 1])
+with head_col1:
+    st.title("🏈 Dickens League Draft Simulator")
+with head_col2:
+    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+    with st.popover("⚙️ Settings"):
+        if st.session_state.current_pick == 1:
+            uploaded_cbs_html = st.file_uploader("Upload CBS Rankings (.html)", type=["html", "htm"])
+            
+            if st.button("🔄 Sync Live ADPs & HTML", use_container_width=True):
+                if update_live_adps(uploaded_cbs_html):
+                    st.session_state.available_players = load_data()
+                    st.success("Synced successfully with FFC, CBS ADP, and CBS HTML Ranks!")
+                else:
+                    st.error("Failed to sync live data.")
+        else:
+            st.info("Draft in progress. Syncing is disabled.")
+        
+        st.divider()
+        if st.button("🧨 Reset Draft", use_container_width=True):
+            st.session_state.clear()
+            st.rerun()
+
+current_turn_index = st.session_state.current_pick - 1
+team_on_clock = DRAFT_ORDER[current_turn_index] if current_turn_index < len(DRAFT_ORDER) else "Draft Complete"
+
+# --- 3 COLUMN MAIN LAYOUT ---
+col_left, col_board, col_roster = st.columns([1.4, 3.1, 1.0])
+
+# --- LEFT COLUMN: Filter & Sort Available Players ---
+with col_left:
+    st.subheader("Available Players")
+    
+    pos_filter = st.radio("Position Filter:", ["All", "QB", "RB", "WR", "TE", "K", "DST"], horizontal=True, label_visibility="collapsed")
+    search_query = st.text_input("Search player...")
+    sort_option = st.selectbox("Sort by:", ["CBS ADP", "CBS Rank", "FFC ADP"])
+    
+    display_df = st.session_state.available_players.copy()
+    
+    for col in ['CBS ADP', 'CBS Rank', 'FFC ADP']:
+        if col in display_df.columns:
+            display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(999.0)
+            
+    if sort_option == "CBS ADP":
+        display_df = display_df.sort_values(by='CBS ADP', ascending=True).reset_index(drop=True)
+    elif sort_option == "CBS Rank":
+        display_df = display_df.sort_values(by='CBS Rank', ascending=True).reset_index(drop=True)
+    elif sort_option == "FFC ADP":
+        display_df = display_df.sort_values(by='FFC ADP', ascending=True).reset_index(drop=True)
+        
+    if pos_filter != "All":
+        display_df = display_df[display_df['Position'].str.strip().str.upper() == pos_filter].reset_index(drop=True)
+        
+    if search_query:
+        display_df = display_df[display_df['Player'].str.contains(search_query, case=False, na=False)].reset_index(drop=True)
+        
+    with st.container(height=680):
+        for idx, row in display_df.head(50).iterrows():
+            active_adp = row['FFC ADP'] if sort_option == "FFC ADP" else row['CBS ADP']
+            rd = math.ceil(active_adp / 12) if pd.notna(active_adp) and active_adp < 999 else 1
+            pk = int((active_adp - 1) % 12) + 1 if pd.notna(active_adp) and active_adp < 999 else 1
+            
+            card_color = get_color(row['Position'])
+            btn_label = "Draft" if team_on_clock == "Slampigskins" else "Force"
+            
+            cbs_adp_text = f"<b>CBS ADP:</b> {row.get('CBS ADP', 0.0)}" if sort_option == "CBS ADP" else f"CBS ADP: {row.get('CBS ADP', 0.0)}"
+            cbs_rank_text = f"<b>Rank:</b> {int(row.get('CBS Rank', 1))}" if sort_option == "CBS Rank" else f"Rank: {int(row.get('CBS Rank', 1))}"
+            ffc_adp_text = f"<b>FFC ADP:</b> {row.get('FFC ADP', 0.0)}" if sort_option == "FFC ADP" else f"FFC ADP: {row.get('FFC ADP', 0.0)}"
+
+            card_key = f"card_{idx}"
+            st.markdown(f"""
+            <style>
+            div.st-key-{card_key} {{
+                background-color: {card_color} !important;
+                padding: 10px 15px !important;
+                border-radius: 8px !important;
+                border: 1px solid #a0aab5 !important;
+                margin-bottom: 8px !important;
+            }}
+            </style>
+            """, unsafe_allow_html=True)
+            
+            with st.container(key=card_key):
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.markdown(f"""
+                    <div style='font-size: 12px; color: #000000; line-height: 1.4; margin-top: 4px;'>
+                        <b style='font-size: 14px;'>{row['Player']}</b> ({row['Position']} - {row['NFLTeam']})<br>
+                        {cbs_adp_text} ({rd}.{pk}) | {ffc_adp_text} | {cbs_rank_text}
+                    </div>
+                    """, unsafe_allow_html=True)
+                with c2:
+                    if st.button(f"{btn_label}", key=f"btn_{card_key}", use_container_width=True):
+                        draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": team_on_clock, **row.to_dict()}
+                        st.session_state.draft_history.append(draft_item)
+                        st.session_state.available_players = st.session_state.available_players[st.session_state.available_players['Rank'] != row['Rank']].reset_index(drop=True)
+                        st.session_state.current_pick += 1
+                        st.session_state.time_left = 120
+                        st.rerun()
+
+# --- MIDDLE COLUMN: Ticking Clock & Draft Board ---
+with col_board:
+    @st.fragment(run_every=1)
+    def render_clock(team_name):
+        if team_name == "Draft Complete":
+            st.subheader("Draft Complete!")
+            return
+
+        st.session_state.time_left -= 1
+        mins = max(0, st.session_state.time_left // 60)
+        secs = max(0, st.session_state.time_left % 60)
+        
+        st.subheader(f"On Clock: **{team_name}** | ⏱️ {mins}:{secs:02d}")
+        
+        if st.session_state.time_left <= 0:
+            st.session_state.time_left = 120
+            selection = st.session_state.available_players.iloc[0]
+            draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": team_name, **selection.to_dict()}
+            st.session_state.draft_history.append(draft_item)
+            st.session_state.available_players = st.session_state.available_players[st.session_state.available_players['Rank'] != selection['Rank']].reset_index(drop=True)
+            st.session_state.current_pick += 1
+            st.rerun()
+
+    col_sim1, col_sim2 = st.columns(2)
+    with col_sim1:
+        render_clock(team_on_clock)
+    with col_sim2:
+        if team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                if st.button("🤖 Sim Pick"):
+                    cpu_selection = execute_cpu_pick(team_on_clock, st.session_state.current_pick)
+                    draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": team_on_clock, **cpu_selection.to_dict()}
+                    st.session_state.draft_history.append(draft_item)
+                    st.session_state.available_players = st.session_state.available_players[st.session_state.available_players['Rank'] != cpu_selection['Rank']].reset_index(drop=True)
+                    st.session_state.current_pick += 1
+                    st.session_state.time_left = 120
+                    st.rerun()
+            with col_b2:
+                if st.button("⏩ Sim to Me"):
+                    while DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins" and st.session_state.current_pick <= len(DRAFT_ORDER):
+                        current_team = DRAFT_ORDER[st.session_state.current_pick - 1]
+                        cpu_selection = execute_cpu_pick(current_team, st.session_state.current_pick)
+                        draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": current_team, **cpu_selection.to_dict()}
+                        st.session_state.draft_history.append(draft_item)
+                        st.session_state.available_players = st.session_state.available_players[st.session_state.available_players['Rank'] != cpu_selection['Rank']].reset_index(drop=True)
+                        st.session_state.current_pick += 1
+                    st.session_state.time_left = 120
+                    st.rerun()
+
+    st.markdown("---")
+
+    table_html = "<table style='width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>"
+    table_html += "<tr>"
+    for team in TEAMS:
+        table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; height: 35px; width: 8.3%;'>{team}</th>"
+    table_html += "</tr>"
+
+    for round_num in range(1, 17):
+        table_html += "<tr>"
+        for col_idx in range(12):
+            actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
+            pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
+            
+            if pick:
+                color = get_color(pick['Position'])
+                table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 2px; height: 45px; line-height: 1.1;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
+            else:
+                table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 2px; height: 45px;'><i>Pick {actual_pick_num}</i></td>"
+        table_html += "</tr>"
+
+    table_html += "</table>"
+    st.markdown(table_html, unsafe_allow_html=True)
+
+# --- RIGHT COLUMN: Slampigskins Roster & Bench ---
+with col_roster:
+    st.subheader("🛡️ Slampigskins Roster")
+    
+    my_picks = [p for p in st.session_state.draft_history if p['FantasyTeam'] == "Slampigskins"]
+    for p in my_picks:
+        p['Position'] = str(p.get('Position', '')).strip().upper()
+    
+    qbs = [p for p in my_picks if p['Position'] == "QB"]
+    rbs = [p for p in my_picks if p['Position'] == "RB"]
+    wrs = [p for p in my_picks if p['Position'] == "WR"]
+    tes = [p for p in my_picks if p['Position'] == "TE"]
+    ks  = [p for p in my_picks if p['Position'] == "K"]
+    dsts = [p for p in my_picks if p['Position'] == "DST"]
+    
+    starters = {
+        "QB": qbs[:1], "RB": rbs[:2], "WR": wrs[:2],
+        "TE": tes[:1], "K": ks[:1], "DST": dsts[:1]
+    }
+    bench = qbs[1:] + rbs[2:] + wrs[2:] + tes[1:] + ks[1:] + dsts[1:]
+
+    st.markdown("**Starting QB**")
+    if starters["QB"]: st.info(f"🏈 {starters['QB'][0]['Player']} (Pick {starters['QB'][0]['Pick']})")
+    else: st.caption("Empty")
+
+    st.markdown("**Starting RBs (Max 2)**")
+    if starters["RB"]:
+        for r in starters["RB"]: st.success(f"🏃 {r['Player']} (Pick {r['Pick']})")
+    else: st.caption("Empty")
+
+    st.markdown("**Starting WRs (Max 2)**")
+    if starters["WR"]:
+        for w in starters["WR"]: st.warning(f"🙌 {w['Player']} (Pick {w['Pick']})")
+    else: st.caption("Empty")
+
+    st.markdown("**Starting TE**")
+    if starters["TE"]: st.error(f"🧱 {starters['TE'][0]['Player']} (Pick {starters['TE'][0]['Pick']})")
+    else: st.caption("Empty")
+    
+    st.markdown("**Starting K**")
+    if starters["K"]: st.info(f"🥾 {starters['K'][0]['Player']} (Pick {starters['K'][0]['Pick']})")
+    else: st.caption("Empty")
+    
+    st.markdown("**Starting DST**")
+    if starters["DST"]: st.error(f"🛡️ {starters['DST'][0]['Player']} (Pick {starters['DST'][0]['Pick']})")
+    else: st.caption("Empty")
+
+    st.markdown("---")
+    st.markdown("**Bench / Other**")
+    if bench:
+        for b in bench: st.caption(f"📌 {b['Player']} ({b['Position']} - Pick {b['Pick']})")
+    else: st.caption("No bench players yet")

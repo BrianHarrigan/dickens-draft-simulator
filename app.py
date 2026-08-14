@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from config import (
     CSV_FILENAME, EXCEL_FILENAME, TEAMS, DRAFT_ORDER,
     TEAM_NFL_BIASES, MANAGER_TENDENCIES, get_color,
-    normalize_name, make_short_name
+    normalize_name, make_short_name, TARGET_PLAYERS
 )
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -184,6 +184,11 @@ def load_data():
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(999.0)
             
+    # --- NEW: Normalize position names so FFC matches the app ---
+    if 'Position' in df.columns:
+        df['Position'] = df['Position'].astype(str).str.strip().str.upper()
+        df['Position'] = df['Position'].replace({'PK': 'K', 'DEF': 'DST', 'D/ST': 'DST'})
+            
     return df
 
 
@@ -295,6 +300,9 @@ with col_left:
         display_df = display_df[display_df['Player'].str.contains(search_query, case=False, na=False)].reset_index(drop=True)
         
     with st.container(height=680):
+        # Create a normalized list of targets for bulletproof matching
+        normalized_targets = [normalize_name(tp) for tp in TARGET_PLAYERS]
+        
         for idx, row in display_df.head(50).iterrows():
             active_adp = row['FFC ADP'] if sort_option == "FFC ADP" else row['CBS ADP']
             rd = math.ceil(active_adp / 12) if pd.notna(active_adp) and active_adp < 999 else 1
@@ -307,6 +315,12 @@ with col_left:
             cbs_rank_text = f"<b>Rank:</b> {int(row.get('CBS Rank', 1))}" if sort_option == "CBS Rank" else f"Rank: {int(row.get('CBS Rank', 1))}"
             ffc_adp_text = f"<b>FFC ADP:</b> {row.get('FFC ADP', 0.0)}" if sort_option == "FFC ADP" else f"FFC ADP: {row.get('FFC ADP', 0.0)}"
 
+            # --- HIGHLIGHT TARGET LOGIC ---
+            is_target = normalize_name(row['Player']) in normalized_targets
+            border_style = "3px solid #ff3333" if is_target else "1px solid #a0aab5"
+            box_shadow = "box-shadow: 0px 0px 8px 1px rgba(255, 51, 51, 0.6) !important;" if is_target else ""
+            target_icon = " 🎯" if is_target else ""
+
             card_key = f"card_{idx}"
             st.markdown(f"""
             <style>
@@ -314,7 +328,8 @@ with col_left:
                 background-color: {card_color} !important;
                 padding: 10px 15px !important;
                 border-radius: 8px !important;
-                border: 1px solid #a0aab5 !important;
+                border: {border_style} !important;
+                {box_shadow}
                 margin-bottom: 8px !important;
             }}
             </style>
@@ -325,7 +340,7 @@ with col_left:
                 with c1:
                     st.markdown(f"""
                     <div style='font-size: 12px; color: #000000; line-height: 1.4; margin-top: 4px;'>
-                        <b style='font-size: 14px;'>{row['Player']}</b> ({row['Position']} - {row['NFLTeam']})<br>
+                        <b style='font-size: 14px;'>{row['Player']}{target_icon}</b> ({row['Position']} - {row['NFLTeam']})<br>
                         {cbs_adp_text} ({rd}.{pk}) | {ffc_adp_text} | {cbs_rank_text}
                     </div>
                     """, unsafe_allow_html=True)
@@ -391,13 +406,20 @@ with col_board:
     st.markdown("---")
 
     table_html = "<table style='width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>"
+    
+    # --- TABLE HEADER ---
     table_html += "<tr>"
+    table_html += "<th style='border: 1px solid black; padding: 4px; background-color: #dcdcdc; height: 35px; width: 4%; font-weight: bold;'>Rd</th>"
     for team in TEAMS:
-        table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; height: 35px; width: 8.3%;'>{team}</th>"
+        table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; height: 35px; width: 8%;'>{team}</th>"
     table_html += "</tr>"
 
+    # --- TABLE ROWS WITH ROUND LABELS ---
     for round_num in range(1, 17):
         table_html += "<tr>"
+        # Round label indicator column
+        table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 2px; height: 45px;'>R{round_num}</td>"
+        
         for col_idx in range(12):
             actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
             pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)

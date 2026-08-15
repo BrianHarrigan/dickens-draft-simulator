@@ -257,29 +257,29 @@ def execute_cpu_pick(team_name, current_pick_num):
     return top_candidates.iloc[chosen_index]
 
 
-# --- TOP HEADER & SETTINGS POPOVER ---
-head_col1, head_col2 = st.columns([5, 1])
-with head_col1:
-    st.title("🏈 Dickens League Draft Simulator")
-with head_col2:
-    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-    with st.popover("⚙️ Settings"):
-        if st.session_state.current_pick == 1:
-            uploaded_cbs_html = st.file_uploader("Upload CBS Rankings (.html)", type=["html", "htm"])
-            
-            if st.button("🔄 Sync Live ADPs & HTML", use_container_width=True):
-                if update_live_adps(uploaded_cbs_html):
-                    st.session_state.available_players = load_data()
-                    st.success("Synced successfully with FFC, CBS ADP, and CBS HTML Ranks!")
-                else:
-                    st.error("Failed to sync live data.")
-        else:
-            st.info("Draft in progress. Syncing is disabled.")
-        
-        st.divider()
-        if st.button("🧨 Reset Draft", use_container_width=True):
-            st.session_state.clear()
-            st.rerun()
+# --- SETTINGS POPOVER ---
+with st.popover("⚙️ Settings"):
+    st.markdown("### Draft Controls")
+    
+    # --- 📸 SCREENSHOT MODE TOGGLE ---
+    if "screenshot_mode" not in st.session_state:
+        st.session_state.screenshot_mode = False
+
+    mode_btn_label = "📱 Standard View" if st.session_state.screenshot_mode else "📸 Full Board View (Screenshot)"
+    if st.button(mode_btn_label, use_container_width=True):
+        st.session_state.screenshot_mode = not st.session_state.screenshot_mode
+        st.rerun()
+    st.caption("Toggle to fit the entire board on your phone screen for easy screenshots.")
+
+    st.divider()
+
+    st.write("Wipe the board and start a new mock draft.")
+    if st.button("🧨 Reset Draft", use_container_width=True):
+        st.session_state.draft_history = []
+        st.session_state.current_pick = 1
+        st.session_state.available_players = load_data()
+        st.session_state.screenshot_mode = False
+        st.rerun()
 
 current_turn_index = st.session_state.current_pick - 1
 team_on_clock = DRAFT_ORDER[current_turn_index] if current_turn_index < len(DRAFT_ORDER) else "Draft Complete"
@@ -440,22 +440,45 @@ with col_board:
 
     st.markdown("---")
 
-    # --- 📱 MOBILE TABLE WRAPPER UPDATE ---
-    table_html = "<div style='overflow-x: auto; width: 100%; border: 1px solid #ccc; border-radius: 4px;'>"
-    table_html += "<table style='min-width: 750px; width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>"
-    
+    # --- 📸 CHECK FOR SCREENSHOT MODE ---
+    is_screenshot = st.session_state.get("screenshot_mode", False)
+
+    if is_screenshot:
+        st.info("📸 **Screenshot View Active:** Scaled to fit your screen. Take your screenshot, then click below to exit.")
+        if st.button("✖️ Exit Screenshot View", use_container_width=True):
+            st.session_state.screenshot_mode = False
+            st.rerun()
+
+        # Compact CSS for 1-screen phone screenshot
+        table_html = """
+        <div style='width: 100%; overflow: hidden; margin-bottom: 20px;'>
+        <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 6.5px; font-family: sans-serif;'>
+        """
+        cell_height = "22px"
+        header_height = "18px"
+        font_size = "6.5px"
+    else:
+        # Standard Touch-Scrollable CSS
+        table_html = """
+        <div style='overflow-x: auto; width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px;'>
+        <table style='min-width: 750px; width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>
+        """
+        cell_height = "45px"
+        header_height = "35px"
+        font_size = "10px"
+
     # --- TABLE HEADER ---
     table_html += "<tr>"
-    table_html += "<th style='border: 1px solid black; padding: 4px; background-color: #dcdcdc; height: 35px; width: 4%; font-weight: bold;'>Rd</th>"
+    table_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #dcdcdc; height: {header_height}; width: 5%; font-weight: bold;'>Rd</th>"
     for team in TEAMS:
-        table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; height: 35px; width: 8%;'>{team}</th>"
+        team_display = team[:4] if is_screenshot else team
+        table_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #f0f0f0; height: {header_height}; overflow: hidden; white-space: nowrap;'>{team_display}</th>"
     table_html += "</tr>"
 
-    # --- TABLE ROWS WITH ROUND LABELS ---
+    # --- TABLE ROWS ---
     for round_num in range(1, 17):
         table_html += "<tr>"
-        # Round label indicator column
-        table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 2px; height: 45px;'>R{round_num}</td>"
+        table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 1px; height: {cell_height};'>R{round_num}</td>"
         
         for col_idx in range(12):
             actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
@@ -463,14 +486,23 @@ with col_board:
             
             if pick:
                 color = get_color(pick['Position'])
-                table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 2px; height: 45px; line-height: 1.1;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
+                # Abbreviate names in screenshot mode to prevent text wrapping/clutter
+                player_display = make_short_name(pick['Player']) if is_screenshot else pick['Player']
+                pos_display = pick['Position']
+                
+                if is_screenshot:
+                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 1px; height: {cell_height}; line-height: 1.0; overflow: hidden;'><b>{player_display}</b><br>{pos_display}</td>"
+                else:
+                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 2px; height: {cell_height}; line-height: 1.1;'><b>{player_display}</b><br>{pos_display}</td>"
             else:
-                table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 2px; height: 45px;'><i>Pick {actual_pick_num}</i></td>"
+                if is_screenshot:
+                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #b0b0b0; padding: 1px; height: {cell_height}; font-size: 5.5px;'>{actual_pick_num}</td>"
+                else:
+                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 2px; height: {cell_height};'><i>Pick {actual_pick_num}</i></td>"
         table_html += "</tr>"
 
     table_html += "</table></div>"
     st.markdown(table_html, unsafe_allow_html=True)
-    # --------------------------------------
 
 # --- RIGHT COLUMN: Slampigskins Roster & Bench ---
 with col_roster:

@@ -495,24 +495,24 @@ with col_board:
 
     else:
         # ==========================================
-        # 🖥️ 100% ORIGINAL WORKING BOARD (UNTOUCHED)
+        # 🖥️ STANDARD VIEW (Perfectly Locked Grid)
         # ==========================================
         table_html = """
         <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
-        <table style='width: 100%; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif;'>
+        <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif;'>
         """
 
         # Table Header
         table_html += "<tr>"
         table_html += "<th style='border: 1px solid black; padding: 4px; background-color: #dcdcdc; width: 4%; font-weight: bold;'>Rd</th>"
         for team in TEAMS:
-            table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0;'>{team}</th>"
+            table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; width: 8%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{team}</th>"
         table_html += "</tr>"
 
         # Table Rows (Rounds 1 to 16)
         for round_num in range(1, 17):
             table_html += "<tr>"
-            table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 2px;'>R{round_num}</td>"
+            table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 2px; height: 45px;'>R{round_num}</td>"
             
             for col_idx in range(12):
                 actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
@@ -520,9 +520,9 @@ with col_board:
                 
                 if pick:
                     color = get_color(pick['Position'])
-                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 3px; line-height: 1.2;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
+                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 3px; line-height: 1.2; height: 45px; overflow: hidden;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
                 else:
-                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 3px;'><i>Pick {actual_pick_num}</i></td>"
+                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 3px; height: 45px;'><i>Pick {actual_pick_num}</i></td>"
             table_html += "</tr>"
 
         table_html += "</table></div>"

@@ -249,7 +249,12 @@ def execute_cpu_pick(team_name, current_pick_num):
         bias = 1.0 + (raw_bias - 1.0) * 0.3
         need = needs.get(pos, 1.0)
         
-        adp = row['CBS ADP']
+        cbs_adp = row['CBS ADP']
+        ffc_adp = row.get('FFC ADP', 999.0)
+
+        # Use CBS ADP if valid (< 900), otherwise fall back to FFC ADP, otherwise use current pick
+        adp = cbs_adp if (pd.notna(cbs_adp) and cbs_adp < 900) else (ffc_adp if (pd.notna(ffc_adp) and ffc_adp < 900) else float(current_pick_num))
+        
         w_adp = math.exp(-((adp - current_pick_num)**2) / (2 * (sigma**2))) if adp >= current_pick_num else 1.0
         nfl_boost = nfl_boost_val if nfl_tm in favored_nfl_teams else 1.0
         
@@ -330,7 +335,8 @@ with col_left:
             btn_label = "Draft" if team_on_clock == "Slampigskins" else "Force"
             
             cbs_adp_text = f"<b>CBS ADP:</b> {row.get('CBS ADP', 0.0)}" if sort_option == "CBS ADP" else f"CBS ADP: {row.get('CBS ADP', 0.0)}"
-            cbs_rank_text = f"<b>Rank:</b> {int(row.get('CBS Rank', 1))}" if sort_option == "CBS Rank" else f"Rank: {int(row.get('CBS Rank', 1))}"
+            current_rank_val = int(row.get('CBS Rank', 999)) if sort_option == "CBS Rank" and row.get('CBS Rank', 999) < 900 else int(row.get('Rank', 1))
+            rank_text = f"<b>Rank:</b> {current_rank_val}" if sort_option == "CBS Rank" else f"Rank: {current_rank_val}"
             ffc_adp_text = f"<b>FFC ADP:</b> {row.get('FFC ADP', 0.0)}" if sort_option == "FFC ADP" else f"FFC ADP: {row.get('FFC ADP', 0.0)}"
 
             norm_player = normalize_name(row['Player'])
@@ -376,7 +382,7 @@ with col_left:
                     st.markdown(f"""
                     <div style='font-size: 12px; color: #000000; line-height: 1.4; margin-top: 4px;'>
                         <b style='font-size: 14px;'>{row['Player']}{icons}</b> ({row['Position']} - {row['NFLTeam']})<br>
-                        {cbs_adp_text} ({rd}.{pk}) | {ffc_adp_text} | {cbs_rank_text}
+                        {cbs_adp_text} ({rd}.{pk}) | {ffc_adp_text} | {rank_text}
                     </div>
                     """, unsafe_allow_html=True)
                 with c2:

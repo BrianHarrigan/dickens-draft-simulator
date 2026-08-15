@@ -45,6 +45,15 @@ MANAGER_TENDENCIES = {
     "The Right Brothers (CAFP)": {"QB": 1.0, "RB": 1.0, "WR": 1.0, "TE": 1.0, "K": 1.0, "DST": 1.0}
 }
 
+MANAGER_TARGETS = {
+    "Leche": {
+        "player": "Joe Burrow",
+        "min_round": 2,
+        "max_round": 3,
+        "probability": 0.85  # 85% chance to draft him when on the clock in Rd 2-3
+    }
+}
+
 TARGET_PLAYERS = [
     "George Pickens", 
     "Parker Washington", 

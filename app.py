@@ -222,7 +222,17 @@ if 'time_left' not in st.session_state:
     st.session_state.time_left = 120
 
 
-def execute_cpu_pick(team_name, current_pick_num):
+def execute_cpu_pick(team_name, current_pick_num):    
+    # Check for manager-specific reach target
+    target_info = MANAGER_TARGETS.get(team_name)
+    current_round = (current_pick_num - 1) // 12 + 1
+    
+    if target_info:
+        if target_info["min_round"] <= current_round <= target_info["max_round"]:
+            if target_info["player"] in df_avail['Player'].values:
+                if random.random() < target_info["probability"]:
+                    return df_avail[df_avail['Player'] == target_info["player"]].iloc[0]
+    
     df_avail = st.session_state.available_players.copy()
     team_roster = [p['Position'] for p in st.session_state.draft_history if p['FantasyTeam'] == team_name]
     

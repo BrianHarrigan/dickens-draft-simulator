@@ -12,16 +12,14 @@ from bs4 import BeautifulSoup
 from config import (
     CSV_FILENAME, EXCEL_FILENAME, TEAMS, DRAFT_ORDER,
     TEAM_NFL_BIASES, MANAGER_TENDENCIES, get_color,
-    normalize_name, make_short_name, TARGET_PLAYERS, SLEEPER_PLAYERS
+    normalize_name, make_short_name, MANAGER_TARGETS, TARGET_PLAYERS, SLEEPER_PLAYERS
 )
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 st.set_page_config(page_title="Dickens League Draft Simulator", layout="wide")
 
-# --- 📱 MOBILE CSS UPDATE ---
 st.markdown("""
 <style>
-    /* Applies ONLY to screens smaller than 768px (Mobile Phones) */
     @media (max-width: 768px) {
         .main .block-container {
             padding: 1rem 0.5rem !important;
@@ -32,7 +30,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-# ----------------------------
 
 def load_base_excel():
     if os.path.exists(EXCEL_FILENAME):
@@ -59,12 +56,6 @@ def load_base_excel():
             pass
     return generate_fallback_csv()
 
-def make_short_name(name):
-    parts = name.split()
-    if len(parts) <= 1:
-        return name
-    return f"{parts[0][0]}. {parts[-1]}"
-
 def generate_fallback_csv():
     fallback_raw = "Jahmyr Gibbs RB DET, Bijan Robinson RB ATL, Puka Nacua WR LAR, Ja'Marr Chase WR CIN, Christian McCaffrey RB SF"
     players = []
@@ -82,7 +73,6 @@ def generate_fallback_csv():
     df = pd.DataFrame(players)
     df.to_csv(CSV_FILENAME, index=False)
     return df
-
 
 def process_cbs_html_content(html_content):
     cbs_rank_map = {}
@@ -113,9 +103,7 @@ def process_cbs_html_content(html_content):
                     cbs_rank_map[full_name] = rank_val
             except ValueError:
                 continue
-                
     return cbs_rank_map
-
 
 def update_live_adps(uploaded_html_file=None):
     st.info("Fetching live ADP data from FFC/CBS and parsing uploaded HTML...")
@@ -129,7 +117,6 @@ def update_live_adps(uploaded_html_file=None):
     cbs_rank_map = {}
     cbs_adp_map = {}
     
-    # 1. Parse uploaded CBS Rankings HTML
     if uploaded_html_file is not None:
         try:
             html_content = uploaded_html_file.read().decode('utf-8')
@@ -138,7 +125,6 @@ def update_live_adps(uploaded_html_file=None):
         except Exception as e:
             st.warning(f"Could not parse uploaded CBS HTML: {e}")
 
-    # 2. Scrape CBS ADP for distinct CBS ADP numbers
     try:
         cbs_resp = requests.get(cbs_adp_url, headers=headers, verify=False, timeout=10)
         cbs_tables = pd.read_html(StringIO(cbs_resp.text), flavor='lxml')
@@ -156,7 +142,6 @@ def update_live_adps(uploaded_html_file=None):
     except Exception:
         st.warning("Could not reach CBS ADP live page. Defaulting CBS ADP to FFC ADP where missing.")
 
-    # 3. Scrape FFC and assemble master CSV
     try:
         ffc_resp = requests.get(ffc_url, headers=headers, verify=False, timeout=15)
         if ffc_resp.status_code == 200:
@@ -190,7 +175,6 @@ def update_live_adps(uploaded_html_file=None):
         st.error(f"Error updating database: {e}")
         return False
 
-
 @st.cache_data
 def load_data():
     if not os.path.exists(CSV_FILENAME):
@@ -204,13 +188,11 @@ def load_data():
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(999.0)
             
-    # --- NEW: Normalize position names so FFC matches the app ---
     if 'Position' in df.columns:
         df['Position'] = df['Position'].astype(str).str.strip().str.upper()
         df['Position'] = df['Position'].replace({'PK': 'K', 'DEF': 'DST', 'D/ST': 'DST'})
             
     return df
-
 
 if 'draft_history' not in st.session_state:
     st.session_state.draft_history = []
@@ -221,11 +203,9 @@ if 'available_players' not in st.session_state:
 if 'time_left' not in st.session_state:
     st.session_state.time_left = 120
 
-
 def execute_cpu_pick(team_name, current_pick_num):   
     df_avail = st.session_state.available_players.copy()
  
-    # Check for manager-specific reach target
     target_info = MANAGER_TARGETS.get(team_name)
     current_round = (current_pick_num - 1) // 12 + 1
     
@@ -257,6 +237,11 @@ def execute_cpu_pick(team_name, current_pick_num):
     
     scores = []
     top_candidates = df_avail.head(pool_size)
+    
+    # Failsafe in case pool is empty
+    if top_candidates.empty:
+        return df_avail.iloc[0]
+
     for _, row in top_candidates.iterrows():
         pos = row['Position']
         nfl_tm = str(row['NFLTeam'])
@@ -268,32 +253,25 @@ def execute_cpu_pick(team_name, current_pick_num):
         w_adp = math.exp(-((adp - current_pick_num)**2) / (2 * (sigma**2))) if adp >= current_pick_num else 1.0
         nfl_boost = nfl_boost_val if nfl_tm in favored_nfl_teams else 1.0
         
-        # Calculate the base candidate score
         player_score = w_adp * need * bias * nfl_boost
         
-        # --- 🚨 LECHE BIAS OVERRIDE  ---
-        if team_name == "Leche":
+        if team_name == "Leche Brothers (CAFP)":
             if nfl_tm == "CIN":
-                player_score *= 1.5  # 50% boost to Bengals
+                player_score *= 1.5  
             if pos == "QB":
-                player_score *= 1.2  # 20% boost to Quarterbacks
-        # ----------------------------------------
-        
+                player_score *= 1.2  
+                
         scores.append(player_score)
         
     chosen_index = random.choices(range(len(scores)), weights=scores, k=1)[0]
     return top_candidates.iloc[chosen_index]
 
-
-# --- SETTINGS POPOVER ---
 with st.popover("⚙️ Settings"):
     st.markdown("### Draft Controls")
     
-    # Initialize state
     if "screenshot_mode" not in st.session_state:
         st.session_state.screenshot_mode = False
 
-    # Mobile Screenshot Toggle Button
     if st.button("📸 Mobile Screenshot View", use_container_width=True):
         st.session_state.screenshot_mode = not st.session_state.screenshot_mode
         st.rerun()
@@ -311,10 +289,8 @@ with st.popover("⚙️ Settings"):
 current_turn_index = st.session_state.current_pick - 1
 team_on_clock = DRAFT_ORDER[current_turn_index] if current_turn_index < len(DRAFT_ORDER) else "Draft Complete"
 
-# --- 3 COLUMN MAIN LAYOUT ---
 col_left, col_board, col_roster = st.columns([1.4, 3.1, 1.0])
 
-# --- LEFT COLUMN: Filter & Sort Available Players ---
 with col_left:
     st.subheader("Available Players")
     
@@ -342,7 +318,6 @@ with col_left:
         display_df = display_df[display_df['Player'].str.contains(search_query, case=False, na=False)].reset_index(drop=True)
         
     with st.container(height=680):
-        # Normalized lists for matching
         normalized_targets = [normalize_name(tp) for tp in TARGET_PLAYERS]
         normalized_sleepers = [normalize_name(sp) for sp in SLEEPER_PLAYERS]
         
@@ -358,8 +333,6 @@ with col_left:
             cbs_rank_text = f"<b>Rank:</b> {int(row.get('CBS Rank', 1))}" if sort_option == "CBS Rank" else f"Rank: {int(row.get('CBS Rank', 1))}"
             ffc_adp_text = f"<b>FFC ADP:</b> {row.get('FFC ADP', 0.0)}" if sort_option == "FFC ADP" else f"FFC ADP: {row.get('FFC ADP', 0.0)}"
 
-
-            # --- HIGHLIGHT TARGET & SLEEPER LOGIC ---
             norm_player = normalize_name(row['Player'])
             is_target = norm_player in normalized_targets
             is_sleeper = norm_player in normalized_sleepers
@@ -370,7 +343,6 @@ with col_left:
             if is_sleeper:
                 icons += " 😴"
 
-            # Style priority: Both (Purple Glow), Target (Red Glow), Sleeper (Blue Glow), Default
             if is_target and is_sleeper:
                 border_style = "3px solid #9c27b0"
                 box_shadow = "box-shadow: 0px 0px 8px 1px rgba(156, 39, 176, 0.6) !important;"
@@ -416,7 +388,6 @@ with col_left:
                         st.session_state.time_left = 120
                         st.rerun()
 
-# --- MIDDLE COLUMN: Ticking Clock & Draft Board ---
 with col_board:
     @st.fragment(run_every=1)
     def render_clock(team_name):
@@ -455,8 +426,9 @@ with col_board:
                     st.session_state.time_left = 120
                     st.rerun()
             with col_b2:
+                # 🚨 CRITICAL FIX: Ordered to prevent IndexError at pick 193
                 if st.button("⏩ Sim to Me"):
-                    while DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins" and st.session_state.current_pick <= len(DRAFT_ORDER):
+                    while st.session_state.current_pick <= len(DRAFT_ORDER) and DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins":
                         current_team = DRAFT_ORDER[st.session_state.current_pick - 1]
                         cpu_selection = execute_cpu_pick(current_team, st.session_state.current_pick)
                         draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": current_team, **cpu_selection.to_dict()}
@@ -471,9 +443,6 @@ with col_board:
     is_screenshot = st.session_state.get("screenshot_mode", False)
 
     if is_screenshot:
-        # ==========================================
-        # 📸 TEMPORARY COMPACT VIEW (ONLY WHEN PRESSED)
-        # ==========================================
         st.info("📸 **Screenshot Mode Active:** Click below when finished to return to normal view.")
         if st.button("✖️ Exit Screenshot View", use_container_width=True):
             st.session_state.screenshot_mode = False
@@ -505,41 +474,31 @@ with col_board:
         st.markdown(table_html, unsafe_allow_html=True)
 
     else:
-        # ==========================================
-        # 🖥️ STANDARD VIEW (Perfectly Locked Grid)
-        # ==========================================
         table_html = """
         <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
         <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif;'>
         """
-
-        # Table Header
         table_html += "<tr>"
         table_html += "<th style='border: 1px solid black; padding: 4px; background-color: #dcdcdc; width: 4%; font-weight: bold;'>Rd</th>"
         for team in TEAMS:
             table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; width: 8%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{team}</th>"
         table_html += "</tr>"
 
-        # Table Rows (Rounds 1 to 16)
         for round_num in range(1, 17):
             table_html += "<tr>"
             table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 2px; height: 45px;'>R{round_num}</td>"
-            
             for col_idx in range(12):
                 actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
                 pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
-                
                 if pick:
                     color = get_color(pick['Position'])
                     table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 3px; line-height: 1.2; height: 45px; overflow: hidden;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
                 else:
                     table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 3px; height: 45px;'><i>Pick {actual_pick_num}</i></td>"
             table_html += "</tr>"
-
         table_html += "</table></div>"
         st.markdown(table_html, unsafe_allow_html=True)
 
-# --- RIGHT COLUMN: Slampigskins Roster & Bench ---
 with col_roster:
     st.subheader("🛡️ Slampigskins Roster")
     

@@ -59,6 +59,11 @@ def load_base_excel():
             pass
     return generate_fallback_csv()
 
+def make_short_name(name):
+    parts = name.split()
+    if len(parts) <= 1:
+        return name
+    return f"{parts[0][0]}. {parts[-1]}"
 
 def generate_fallback_csv():
     fallback_raw = "Jahmyr Gibbs RB DET, Bijan Robinson RB ATL, Puka Nacua WR LAR, Ja'Marr Chase WR CIN, Christian McCaffrey RB SF"
@@ -273,15 +278,14 @@ def execute_cpu_pick(team_name, current_pick_num):
 with st.popover("⚙️ Settings"):
     st.markdown("### Draft Controls")
     
-    # --- 📸 SCREENSHOT MODE TOGGLE ---
+    # Initialize state
     if "screenshot_mode" not in st.session_state:
         st.session_state.screenshot_mode = False
 
-    mode_btn_label = "📱 Standard View" if st.session_state.screenshot_mode else "📸 Full Board View (Screenshot)"
-    if st.button(mode_btn_label, use_container_width=True):
+    # Mobile Screenshot Toggle Button
+    if st.button("📸 Mobile Screenshot View", use_container_width=True):
         st.session_state.screenshot_mode = not st.session_state.screenshot_mode
         st.rerun()
-    st.caption("Toggle to fit the entire board on your phone screen for easy screenshots.")
 
     st.divider()
 
@@ -453,69 +457,76 @@ with col_board:
 
     st.markdown("---")
 
-    # --- 📸 CHECK FOR SCREENSHOT MODE ---
     is_screenshot = st.session_state.get("screenshot_mode", False)
 
     if is_screenshot:
-        st.info("📸 **Screenshot View Active:** Scaled to fit your screen. Take your screenshot, then click below to exit.")
+        # ==========================================
+        # 📸 TEMPORARY COMPACT VIEW (ONLY WHEN PRESSED)
+        # ==========================================
+        st.info("📸 **Screenshot Mode Active:** Click below when finished to return to normal view.")
         if st.button("✖️ Exit Screenshot View", use_container_width=True):
             st.session_state.screenshot_mode = False
             st.rerun()
 
-        # Compact CSS for 1-screen phone screenshot
         table_html = """
-        <div style='width: 100%; overflow: hidden; margin-bottom: 20px;'>
+        <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow: hidden;'>
         <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 6.5px; font-family: sans-serif;'>
         """
-        cell_height = "22px"
-        header_height = "18px"
-        font_size = "6.5px"
-    else:
-        # Standard Desktop CSS (Restored to Full Board, No Slider)
-        table_html = """
-        <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px;'>
-        <table style='width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>
-        """
-        cell_height = "45px"
-        header_height = "35px"
-        font_size = "10px"
-
-    # --- TABLE HEADER ---
-    table_html += "<tr>"
-    table_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #dcdcdc; height: {header_height}; width: 5%; font-weight: bold;'>Rd</th>"
-    for team in TEAMS:
-        team_display = team[:4] if is_screenshot else team
-        table_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #f0f0f0; height: {header_height}; overflow: hidden; white-space: nowrap;'>{team_display}</th>"
-    table_html += "</tr>"
-
-    # --- TABLE ROWS ---
-    for round_num in range(1, 17):
-        table_html += "<tr>"
-        table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 1px; height: {cell_height};'>R{round_num}</td>"
-        
-        for col_idx in range(12):
-            actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
-            pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
-            
-            if pick:
-                color = get_color(pick['Position'])
-                # Abbreviate names in screenshot mode to prevent text wrapping/clutter
-                player_display = make_short_name(pick['Player']) if is_screenshot else pick['Player']
-                pos_display = pick['Position']
-                
-                if is_screenshot:
-                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 1px; height: {cell_height}; line-height: 1.0; overflow: hidden;'><b>{player_display}</b><br>{pos_display}</td>"
-                else:
-                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 2px; height: {cell_height}; line-height: 1.1;'><b>{player_display}</b><br>{pos_display}</td>"
-            else:
-                if is_screenshot:
-                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #b0b0b0; padding: 1px; height: {cell_height}; font-size: 5.5px;'>{actual_pick_num}</td>"
-                else:
-                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 2px; height: {cell_height};'><i>Pick {actual_pick_num}</i></td>"
+        table_html += "<tr><th style='border: 1px solid black; padding: 1px; background-color: #dcdcdc; width: 5%; font-weight: bold;'>Rd</th>"
+        for team in TEAMS:
+            table_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #f0f0f0; overflow: hidden; white-space: nowrap;'>{team[:3]}</th>"
         table_html += "</tr>"
 
-    table_html += "</table></div>"
-    st.markdown(table_html, unsafe_allow_html=True)
+        for round_num in range(1, 17):
+            table_html += "<tr>"
+            table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 1px; height: 22px;'>R{round_num}</td>"
+            for col_idx in range(12):
+                actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
+                pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
+                if pick:
+                    color = get_color(pick['Position'])
+                    short_name = make_short_name(pick['Player'])
+                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 1px; height: 22px; line-height: 1.0; overflow: hidden;'><b>{short_name}</b><br>{pick['Position']}</td>"
+                else:
+                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #b0b0b0; padding: 1px; height: 22px; font-size: 6px;'>{actual_pick_num}</td>"
+            table_html += "</tr>"
+        table_html += "</table></div>"
+        st.markdown(table_html, unsafe_allow_html=True)
+
+    else:
+        # ==========================================
+        # 🖥️ 100% ORIGINAL WORKING BOARD (UNTOUCHED)
+        # ==========================================
+        table_html = """
+        <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
+        <table style='width: 100%; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif;'>
+        """
+
+        # Table Header
+        table_html += "<tr>"
+        table_html += "<th style='border: 1px solid black; padding: 4px; background-color: #dcdcdc; width: 4%; font-weight: bold;'>Rd</th>"
+        for team in TEAMS:
+            table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0;'>{team}</th>"
+        table_html += "</tr>"
+
+        # Table Rows (Rounds 1 to 16)
+        for round_num in range(1, 17):
+            table_html += "<tr>"
+            table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 2px;'>R{round_num}</td>"
+            
+            for col_idx in range(12):
+                actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
+                pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
+                
+                if pick:
+                    color = get_color(pick['Position'])
+                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 3px; line-height: 1.2;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
+                else:
+                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 3px;'><i>Pick {actual_pick_num}</i></td>"
+            table_html += "</tr>"
+
+        table_html += "</table></div>"
+        st.markdown(table_html, unsafe_allow_html=True)
 
 # --- RIGHT COLUMN: Slampigskins Roster & Bench ---
 with col_roster:

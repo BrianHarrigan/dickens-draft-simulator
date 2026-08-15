@@ -251,7 +251,19 @@ def execute_cpu_pick(team_name, current_pick_num):
         adp = row['CBS ADP']
         w_adp = math.exp(-((adp - current_pick_num)**2) / (2 * (sigma**2))) if adp >= current_pick_num else 1.0
         nfl_boost = nfl_boost_val if nfl_tm in favored_nfl_teams else 1.0
-        scores.append(w_adp * need * bias * nfl_boost)
+        
+        # Calculate the base candidate score
+        player_score = w_adp * need * bias * nfl_boost
+        
+        # --- 🚨 LECHE BIAS OVERRIDE  ---
+        if team_name == "Leche":
+            if nfl_tm == "CIN":
+                player_score *= 1.5  # 50% boost to Bengals
+            if pos == "QB":
+                player_score *= 1.2  # 20% boost to Quarterbacks
+        # ----------------------------------------
+        
+        scores.append(player_score)
         
     chosen_index = random.choices(range(len(scores)), weights=scores, k=1)[0]
     return top_candidates.iloc[chosen_index]
@@ -330,6 +342,7 @@ with col_left:
             cbs_adp_text = f"<b>CBS ADP:</b> {row.get('CBS ADP', 0.0)}" if sort_option == "CBS ADP" else f"CBS ADP: {row.get('CBS ADP', 0.0)}"
             cbs_rank_text = f"<b>Rank:</b> {int(row.get('CBS Rank', 1))}" if sort_option == "CBS Rank" else f"Rank: {int(row.get('CBS Rank', 1))}"
             ffc_adp_text = f"<b>FFC ADP:</b> {row.get('FFC ADP', 0.0)}" if sort_option == "FFC ADP" else f"FFC ADP: {row.get('FFC ADP', 0.0)}"
+
 
             # --- HIGHLIGHT TARGET & SLEEPER LOGIC ---
             norm_player = normalize_name(row['Player'])
@@ -458,10 +471,10 @@ with col_board:
         header_height = "18px"
         font_size = "6.5px"
     else:
-        # Standard Touch-Scrollable CSS
+        # Standard Desktop CSS (Restored to Full Board, No Slider)
         table_html = """
-        <div style='overflow-x: auto; width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px;'>
-        <table style='min-width: 750px; width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>
+        <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px;'>
+        <table style='width: 100%; border-collapse: collapse; text-align: center; font-size: 10px; font-family: sans-serif;'>
         """
         cell_height = "45px"
         header_height = "35px"

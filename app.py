@@ -20,6 +20,26 @@ st.set_page_config(
     page_icon="static/apple-touch-icon.png"
 )
 
+import streamlit.components.v1 as components
+
+# This hidden script forcefully deletes the default Streamlit iOS icon
+# and replaces it with the custom Dickens draft simulator icon.
+components.html(
+    """
+    <script>
+    const links = window.parent.document.querySelectorAll('link[rel="apple-touch-icon"]');
+    links.forEach(link => link.parentNode.removeChild(link));
+
+    const newLink = window.parent.document.createElement('link');
+    newLink.rel = 'apple-touch-icon';
+    newLink.href = 'https://slampigskins-draft-simulator.streamlit.app/app/static/apple-touch-icon.png';
+    window.parent.document.head.appendChild(newLink);
+    </script>
+    """,
+    height=0,
+    width=0,
+)
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 st.set_page_config(page_title="Dickens League Draft Simulator", layout="wide")
 

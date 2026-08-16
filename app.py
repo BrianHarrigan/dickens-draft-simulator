@@ -18,18 +18,22 @@ from config import (
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 st.set_page_config(page_title="Dickens League Draft Simulator", layout="wide")
 
-st.markdown("""
-<style>
-    @media (max-width: 768px) {
-        .main .block-container {
-            padding: 1rem 0.5rem !important;
+st.markdown(
+    """
+    <link rel="apple-touch-icon" href="/app/static/apple-touch-icon.png">
+    <style>
+        @media (max-width: 768px) {
+            .main .block-container {
+                padding: 1rem 0.5rem !important;
+            }
+            button {
+                min-height: 44px !important;
+            }
         }
-        button {
-            min-height: 44px !important;
-        }
-    }
-</style>
-""", unsafe_allow_html=True)
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 def load_base_excel():
     if os.path.exists(EXCEL_FILENAME):
@@ -206,6 +210,7 @@ if 'time_left' not in st.session_state:
 def execute_cpu_pick(team_name, current_pick_num):   
     df_avail = st.session_state.available_players.copy()
  
+    # Check for manager-specific target override
     target_info = MANAGER_TARGETS.get(team_name)
     current_round = (current_pick_num - 1) // 12 + 1
     
@@ -235,13 +240,25 @@ def execute_cpu_pick(team_name, current_pick_num):
     favored_nfl_teams = bias_info["teams"]
     nfl_boost_val = bias_info["boost"]
     
-    scores = []
-    top_candidates = df_avail.head(pool_size)
+    # 1. Establish Effective ADP (CBS -> FFC -> Current Pick fallback)
+    df_avail['Effective_ADP'] = df_avail.apply(
+        lambda r: r['CBS ADP'] if (pd.notna(r['CBS ADP']) and r['CBS ADP'] < 900) 
+        else (r['FFC ADP'] if (pd.notna(r['FFC ADP']) and r['FFC ADP'] < 900) else float(current_pick_num)), 
+        axis=1
+    )
     
-    # Failsafe in case pool is empty
+    # CRITICAL FIX: Sort by Effective_ADP so df_avail is ordered by draft value, not CSV Rank!
+    df_avail = df_avail.sort_values(by='Effective_ADP').reset_index(drop=True)
+    
+    # 2. COMBINE TOP CANDIDATES WITH ALL FALLEN VALUE PLAYERS
+    top_by_adp = df_avail.head(pool_size)
+    fallen_players = df_avail[df_avail['Effective_ADP'] < current_pick_num]
+    top_candidates = pd.concat([top_by_adp, fallen_players]).drop_duplicates(subset=['Player']).reset_index(drop=True)
+    
     if top_candidates.empty:
-        return df_avail.iloc[0]
-
+        top_candidates = df_avail.head(10)
+    
+    scores = []
     for _, row in top_candidates.iterrows():
         pos = row['Position']
         nfl_tm = str(row['NFLTeam'])
@@ -249,13 +266,15 @@ def execute_cpu_pick(team_name, current_pick_num):
         bias = 1.0 + (raw_bias - 1.0) * 0.3
         need = needs.get(pos, 1.0)
         
-        cbs_adp = row['CBS ADP']
-        ffc_adp = row.get('FFC ADP', 999.0)
-
-        # Use CBS ADP if valid (< 900), otherwise fall back to FFC ADP, otherwise use current pick
-        adp = cbs_adp if (pd.notna(cbs_adp) and cbs_adp < 900) else (ffc_adp if (pd.notna(ffc_adp) and ffc_adp < 900) else float(current_pick_num))
+        adp = row['Effective_ADP']
         
-        w_adp = math.exp(-((adp - current_pick_num)**2) / (2 * (sigma**2))) if adp >= current_pick_num else 1.0
+        # 3. SCALING WEIGHT FOR FALLEN PLAYERS
+        if adp >= current_pick_num:
+            w_adp = math.exp(-((adp - current_pick_num)**2) / (2 * (sigma**2)))
+        else:
+            fall_distance = current_pick_num - adp
+            w_adp = 1.0 + (fall_distance * 0.1)
+            
         nfl_boost = nfl_boost_val if nfl_tm in favored_nfl_teams else 1.0
         
         player_score = w_adp * need * bias * nfl_boost
@@ -270,7 +289,7 @@ def execute_cpu_pick(team_name, current_pick_num):
         
     chosen_index = random.choices(range(len(scores)), weights=scores, k=1)[0]
     return top_candidates.iloc[chosen_index]
-
+    
 with st.popover("⚙️ Settings"):
     st.markdown("### Draft Controls")
     

@@ -17,7 +17,7 @@ from config import (
 
 st.set_page_config(
     page_title="Dickens Draft Simulator",
-    page_icon="static/apple-touch-icon.png"
+    page_icon=":pig_nose:"
 )
 
 import streamlit.components.v1 as components

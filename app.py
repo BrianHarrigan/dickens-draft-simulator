@@ -15,6 +15,18 @@ from config import (
     normalize_name, make_short_name, MANAGER_TARGETS, TARGET_PLAYERS, SLEEPER_PLAYERS
 )
 
+import streamlit as st
+from PIL import Image
+
+# Load the image using PIL
+icon = Image.open("static/apple-touch-icon.png")
+
+# Set the page config to overwrite Streamlit's default favicons and Apple icons
+st.set_page_config(
+    page_title="Slampigskins Draft Simulator",
+    page_icon=icon
+)
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 st.set_page_config(page_title="Dickens League Draft Simulator", layout="wide")
 

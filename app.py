@@ -20,7 +20,7 @@ st.set_page_config(page_title="Dickens League Draft Simulator", layout="wide")
 
 st.markdown(
     """
-    <link rel="apple-touch-icon" href="/app/static/apple-touch-icon.png">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/YourUsername/dickens-draft-simulator/main/static/apple-touch-icon.png">
     <style>
         @media (max-width: 768px) {
             .main .block-container {

@@ -27,53 +27,80 @@ st.markdown(
     @media (max-width: 767px) {
         
         /* 1. MAIN APP LAYOUT (Stack the 3 main columns vertically) */
-        div[data-testid="stHorizontalBlock"] {
+        /* By checking for a 3rd child, we only flip the main layout and leave the 2-column cards alone! */
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) {
             display: flex !important;
             flex-direction: column !important;
         }
-        div[data-testid="stHorizontalBlock"] > div:nth-child(2) { order: 1 !important; }
-        div[data-testid="stHorizontalBlock"] > div:nth-child(1) { order: 2 !important; }
-        div[data-testid="stHorizontalBlock"] > div:nth-child(3) { order: 3 !important; }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) > div[data-testid="column"]:nth-child(2) { order: 1 !important; }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
 
         /* 2. DRAFT BOARD FIX (Prevent Squish) */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(2) table {
+        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) > div[data-testid="column"]:nth-child(2) table {
             min-width: 1200px !important; 
         }
 
-        /* 3. PLAYER CARDS: Lock text to left (75%) and button to right (25%) */
+        /* 3. SHRINK THE DEAD SPACE BETWEEN CARDS */
+        /* This kills the massive gap Streamlit's wrapper forces between items */
+        div[data-testid="stVerticalBlock"]:has(> div.element-container > div[class*="st-key-card_"]) {
+            gap: 0px !important;
+        }
+        div.element-container:has(> div[class*="st-key-card_"]) {
+            margin-bottom: 0px !important;
+        }
+
+        /* 4. PLAYER CARDS: Rigid 80% (Text) / 20% (Button) Split */
         div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             flex-wrap: nowrap !important;
             align-items: center !important;
+            gap: 4px !important;
         }
         div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) {
-            width: 75% !important;
-            min-width: 75% !important;
+            width: 80% !important;
+            flex: 1 1 80% !important;
+            min-width: 0 !important; /* Critical: stops text from blowing out the box */
         }
         div[class*="st-key-card_"] div[data-testid="column"]:nth-child(2) {
-            width: 25% !important;
-            min-width: 25% !important;
+            width: 20% !important;
+            flex: 0 0 20% !important;
+            min-width: 0 !important;
         }
 
-        /* 4. PLAYER CARDS: Shrink the cell height and contain text */
+        /* 5. PLAYER CARDS: Shrink cell heights and control text */
         div[class*="st-key-card_"] {
-            padding: 4px 8px !important;
-            margin-bottom: 6px !important;
+            padding: 4px 6px !important;
+            margin-bottom: 2px !important; /* Overrides the 8px in your Python loop */
             overflow: hidden !important;
         }
         
-        /* Eliminate the hidden empty space Streamlit adds under markdown text */
         div[class*="st-key-card_"] p {
             margin-bottom: 0px !important;
         }
+        
+        /* Force text to truncate with '...' instead of overlapping */
+        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) div {
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            margin-top: 0px !important;
+            white-space: nowrap !important; 
+            overflow: hidden !important; 
+            text-overflow: ellipsis !important; 
+        }
+        
+        div[class*="st-key-card_"] b {
+            font-size: 12px !important;
+        }
 
-        /* 5. SHRINK THE DRAFT BUTTON (Overrides your global 44px rule) */
+        /* 6. SHRINK THE DRAFT BUTTON */
         div[class*="st-key-card_"] button {
-            min-height: 26px !important;
-            height: 26px !important;
-            padding: 0px 4px !important;
-            font-size: 11px !important;
+            min-height: 24px !important;
+            height: 24px !important;
+            padding: 0px !important;
+            font-size: 10px !important;
             margin: 0px !important;
+            width: 100% !important;
         }
     }
     </style>

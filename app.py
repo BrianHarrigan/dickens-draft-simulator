@@ -26,7 +26,7 @@ st.markdown(
     /* Apply these rules ONLY to mobile screens */
     @media (max-width: 767px) {
         
-        /* 1. Stack ALL columns vertically by default (Fixes the main layout) */
+        /* 1. MAIN LAYOUT */
         div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
@@ -35,62 +35,66 @@ st.markdown(
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
 
-        /* 2. Prevent Draft Board Squish */
+        /* 2. DRAFT BOARD FIX */
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) table {
             min-width: 1200px !important; 
         }
 
-        /* 3. PLAYER CARDS EXCEPTION: Force them to stay side-by-side */
+        /* 3. FIX THE GAPS (Snaps the player cards tightly together) */
+        /* Targets Streamlit's hidden layout gaps strictly inside the Player List column */
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) div[data-testid="stVerticalBlock"] {
+            gap: 2px !important; 
+        }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) div.element-container {
+            margin-bottom: 0px !important;
+        }
+
+        /* 4. PLAYER CARDS: Side-by-side split */
         div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] {
-            flex-direction: row !important; /* Overrides the vertical rule above */
+            flex-direction: row !important; 
             align-items: center !important;
-            gap: 0px !important;
+            gap: 4px !important;
         }
         
-        /* Give the Text 85% of the room */
         div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) {
-            width: 85% !important;
-            flex: 1 1 85% !important;
+            width: 80% !important;
+            flex: 1 1 80% !important;
             min-width: 0 !important;
             order: 1 !important;
         }
         
-        /* Give the tiny button 15% of the room */
         div[class*="st-key-card_"] div[data-testid="column"]:nth-child(2) {
-            width: 15% !important;
-            flex: 0 0 15% !important;
+            width: 20% !important;
+            flex: 0 0 20% !important;
             min-width: 0 !important;
             order: 2 !important;
         }
 
-        /* 4. TIGHTEN THE CARD PADDING */
+        /* 5. FIX THE MISSING ADP & CARD PADDING */
         div[class*="st-key-card_"] {
-            padding: 4px 8px !important;
-            margin-bottom: 4px !important;
-            overflow: hidden !important;
+            padding: 4px 6px !important;
+            margin-bottom: 0px !important; /* Overrides the 8px in your Python code */
+        }
+        
+        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) div {
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+            white-space: normal !important; /* BRINGS ADP BACK */
+            overflow: visible !important;
+        }
+        div[class*="st-key-card_"] b {
+            font-size: 12px !important;
         }
         div[class*="st-key-card_"] p {
             margin-bottom: 0px !important;
         }
-        
-        /* 5. CLEAN TEXT TRUNCATION (Stops names from exploding out of the box) */
-        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) div {
-            font-size: 11px !important;
-            white-space: nowrap !important; 
-            overflow: hidden !important; 
-            text-overflow: ellipsis !important; 
-        }
-        div[class*="st-key-card_"] b {
-            font-size: 13px !important;
-        }
 
-        /* 6. STYLE THE EMOJI BUTTON */
+        /* 6. STYLE THE BUTTON */
         div[class*="st-key-card_"] button {
-            min-height: 30px !important;
-            height: 30px !important;
-            padding: 0px !important;
-            font-size: 14px !important;
-            border-radius: 6px !important;
+            min-height: 28px !important;
+            height: 28px !important;
+            padding: 0px 2px !important;
+            font-size: 11px !important;
         }
     }
     </style>

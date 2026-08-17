@@ -25,25 +25,22 @@ st.markdown(
     <style>
     /* Only apply these rules if the screen is 767px wide or smaller */
     @media (max-width: 767px) {
-        /* Force the main row to behave as a flexbox column so 'order' works */
+        
+        /* 1. FLIP THE LAYOUT (Draft Board to Top) */
         div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
         }
-        
-        /* Middle Column (Draft Board) - Jumps to the absolute top */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-            order: 1 !important;
-        }
-        
-        /* Left Column (Available Players) - Moves to the middle */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
-            order: 2 !important;
-        }
-        
-        /* Right Column (Extra Panel) - Stays at the bottom */
-        div[data-testid="stHorizontalBlock"] > div:nth-child(3) {
-            order: 3 !important;
+        div[data-testid="stHorizontalBlock"] > div:nth-child(2) { order: 1 !important; }
+        div[data-testid="stHorizontalBlock"] > div:nth-child(1) { order: 2 !important; }
+        div[data-testid="stHorizontalBlock"] > div:nth-child(3) { order: 3 !important; }
+
+        /* 2. FORMAT THE DRAFT CELLS (Stop text wrap & shrink boxes) */
+        table td, table th, 
+        div[data-testid="stTable"] td, div[data-testid="stTable"] th {
+            white-space: nowrap !important;
+            padding: 4px 8px !important;
+            font-size: 11px !important;
         }
     }
     </style>

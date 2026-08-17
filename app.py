@@ -20,15 +20,30 @@ st.set_page_config(
     page_icon=":pig_nose:"
 )
 
-# CSS to reverse column stacking strictly on mobile devices
 st.markdown(
     """
     <style>
     /* Only apply these rules if the screen is 767px wide or smaller */
     @media (max-width: 767px) {
-        /* Target Streamlit's standard column container and reverse the vertical stack */
+        /* Ensure the main container stacks vertically */
         [data-testid="stHorizontalBlock"] {
-            flex-direction: column-reverse !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        
+        /* Force the Middle column (Draft Board) to the absolute top */
+        [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) {
+            order: 1 !important;
+        }
+        
+        /* Place the Left column (Available Players) in the middle */
+        [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(1) {
+            order: 2 !important;
+        }
+        
+        /* Push the Right column (Extra Panel) to the bottom */
+        [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(3) {
+            order: 3 !important;
         }
     }
     </style>

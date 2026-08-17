@@ -31,45 +31,49 @@ st.markdown(
             display: flex !important;
             flex-direction: column !important;
         }
-        /* Order: Draft Board (2) -> Available Players (1) -> Roster (3) */
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) { order: 1 !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(1) { order: 2 !important; }
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) { order: 3 !important; }
 
-        /* 2. FIX PLAYER CARDS: Keep text and button side-by-side on mobile */
-        div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] {
-            flex-direction: row !important;
-            align-items: center !important;
-        }
-
-        /* 3. DRAFT BOARD FIX (Prevent Squish, Enable Panning) */
+        /* 2. DRAFT BOARD FIX (Prevent Squish) */
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) table {
             min-width: 1200px !important; 
         }
 
-        /* 4. PLAYER CARD REDESIGN (Compact cells, tight padding) */
+        /* 3. PLAYER CARDS: Lock text to left (75%) and button to right (25%) */
+        div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+        }
+        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) {
+            width: 75% !important;
+            min-width: 75% !important;
+        }
+        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(2) {
+            width: 25% !important;
+            min-width: 25% !important;
+        }
+
+        /* 4. PLAYER CARDS: Shrink the cell height and contain text */
         div[class*="st-key-card_"] {
             padding: 4px 8px !important;
-            margin-bottom: 4px !important;
+            margin-bottom: 6px !important;
+            overflow: hidden !important;
         }
         
-        /* Shrink the player name */
-        div[class*="st-key-card_"] b {
-            font-size: 11px !important;
+        /* Eliminate the hidden empty space Streamlit adds under markdown text */
+        div[class*="st-key-card_"] p {
+            margin-bottom: 0px !important;
         }
-        
-        /* Shrink the ADP stats and team info so they fit nicely */
-        div[class*="st-key-card_"] div {
-            font-size: 9px !important;
-            line-height: 1.1 !important;
-        }
-        
-        /* Make the Draft / Force button compact and prevent it from overflowing */
+
+        /* 5. SHRINK THE DRAFT BUTTON (Overrides your global 44px rule) */
         div[class*="st-key-card_"] button {
-            min-height: 28px !important;
-            height: 28px !important;
+            min-height: 26px !important;
+            height: 26px !important;
             padding: 0px 4px !important;
             font-size: 11px !important;
+            margin: 0px !important;
         }
     }
     </style>

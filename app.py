@@ -25,24 +25,24 @@ st.markdown(
     <style>
     /* Only apply these rules if the screen is 767px wide or smaller */
     @media (max-width: 767px) {
-        /* Ensure the main container stacks vertically */
-        [data-testid="stHorizontalBlock"] {
+        /* Force the main row to behave as a flexbox column so 'order' works */
+        div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
         }
         
-        /* Force the Middle column (Draft Board) to the absolute top */
-        [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(2) {
+        /* Middle Column (Draft Board) - Jumps to the absolute top */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
             order: 1 !important;
         }
         
-        /* Place the Left column (Available Players) in the middle */
-        [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(1) {
+        /* Left Column (Available Players) - Moves to the middle */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
             order: 2 !important;
         }
         
-        /* Push the Right column (Extra Panel) to the bottom */
-        [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-of-type(3) {
+        /* Right Column (Extra Panel) - Stays at the bottom */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(3) {
             order: 3 !important;
         }
     }

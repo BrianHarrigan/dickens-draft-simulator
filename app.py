@@ -20,6 +20,22 @@ st.set_page_config(
     page_icon=":pig_nose:"
 )
 
+# CSS to reverse column stacking strictly on mobile devices
+st.markdown(
+    """
+    <style>
+    /* Only apply these rules if the screen is 767px wide or smaller */
+    @media (max-width: 767px) {
+        /* Target Streamlit's standard column container and reverse the vertical stack */
+        [data-testid="stHorizontalBlock"] {
+            flex-direction: column-reverse !important;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 import streamlit.components.v1 as components
 
 # This hidden script forcefully deletes the default Streamlit iOS icon

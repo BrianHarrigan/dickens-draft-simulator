@@ -23,84 +23,74 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Only apply these rules if the screen is 767px wide or smaller (Mobile) */
+    /* Apply these rules ONLY to mobile screens */
     @media (max-width: 767px) {
         
-        /* 1. MAIN APP LAYOUT (Stack the 3 main columns vertically) */
-        /* By checking for a 3rd child, we only flip the main layout and leave the 2-column cards alone! */
-        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) {
+        /* 1. Stack ALL columns vertically by default (Fixes the main layout) */
+        div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
         }
-        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) > div[data-testid="column"]:nth-child(2) { order: 1 !important; }
-        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
-        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) { order: 1 !important; }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
 
-        /* 2. DRAFT BOARD FIX (Prevent Squish) */
-        div[data-testid="stHorizontalBlock"]:has(> div[data-testid="column"]:nth-child(3)) > div[data-testid="column"]:nth-child(2) table {
+        /* 2. Prevent Draft Board Squish */
+        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) table {
             min-width: 1200px !important; 
         }
 
-        /* 3. SHRINK THE DEAD SPACE BETWEEN CARDS */
-        /* This kills the massive gap Streamlit's wrapper forces between items */
-        div[data-testid="stVerticalBlock"]:has(> div.element-container > div[class*="st-key-card_"]) {
+        /* 3. PLAYER CARDS EXCEPTION: Force them to stay side-by-side */
+        div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] {
+            flex-direction: row !important; /* Overrides the vertical rule above */
+            align-items: center !important;
             gap: 0px !important;
         }
-        div.element-container:has(> div[class*="st-key-card_"]) {
-            margin-bottom: 0px !important;
-        }
-
-        /* 4. PLAYER CARDS: Rigid 80% (Text) / 20% (Button) Split */
-        div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] {
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            align-items: center !important;
-            gap: 4px !important;
-        }
+        
+        /* Give the Text 85% of the room */
         div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) {
-            width: 80% !important;
-            flex: 1 1 80% !important;
-            min-width: 0 !important; /* Critical: stops text from blowing out the box */
-        }
-        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(2) {
-            width: 20% !important;
-            flex: 0 0 20% !important;
+            width: 85% !important;
+            flex: 1 1 85% !important;
             min-width: 0 !important;
-        }
-
-        /* 5. PLAYER CARDS: Shrink cell heights and control text */
-        div[class*="st-key-card_"] {
-            padding: 4px 6px !important;
-            margin-bottom: 2px !important; /* Overrides the 8px in your Python loop */
-            overflow: hidden !important;
+            order: 1 !important;
         }
         
+        /* Give the tiny button 15% of the room */
+        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(2) {
+            width: 15% !important;
+            flex: 0 0 15% !important;
+            min-width: 0 !important;
+            order: 2 !important;
+        }
+
+        /* 4. TIGHTEN THE CARD PADDING */
+        div[class*="st-key-card_"] {
+            padding: 4px 8px !important;
+            margin-bottom: 4px !important;
+            overflow: hidden !important;
+        }
         div[class*="st-key-card_"] p {
             margin-bottom: 0px !important;
         }
         
-        /* Force text to truncate with '...' instead of overlapping */
+        /* 5. CLEAN TEXT TRUNCATION (Stops names from exploding out of the box) */
         div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) div {
-            font-size: 10px !important;
-            line-height: 1.2 !important;
-            margin-top: 0px !important;
+            font-size: 11px !important;
             white-space: nowrap !important; 
             overflow: hidden !important; 
             text-overflow: ellipsis !important; 
         }
-        
         div[class*="st-key-card_"] b {
-            font-size: 12px !important;
+            font-size: 13px !important;
         }
 
-        /* 6. SHRINK THE DRAFT BUTTON */
+        /* 6. STYLE THE EMOJI BUTTON */
         div[class*="st-key-card_"] button {
-            min-height: 24px !important;
-            height: 24px !important;
+            min-height: 30px !important;
+            height: 30px !important;
             padding: 0px !important;
-            font-size: 10px !important;
-            margin: 0px !important;
-            width: 100% !important;
+            font-size: 14px !important;
+            border-radius: 6px !important;
         }
     }
     </style>

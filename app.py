@@ -23,7 +23,7 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Only apply these rules if the screen is 767px wide or smaller */
+    /* Only apply these rules if the screen is 767px wide or smaller (Mobile) */
     @media (max-width: 767px) {
         
         /* 1. FLIP THE LAYOUT (Draft Board to Top) */
@@ -31,16 +31,43 @@ st.markdown(
             display: flex !important;
             flex-direction: column !important;
         }
+        /* Middle Column (Draft Board) - Jumps to the top */
         div[data-testid="stHorizontalBlock"] > div:nth-child(2) { order: 1 !important; }
+        /* Left Column (Available Players) - Moves to the middle */
         div[data-testid="stHorizontalBlock"] > div:nth-child(1) { order: 2 !important; }
+        /* Right Column (Roster) - Stays at the bottom */
         div[data-testid="stHorizontalBlock"] > div:nth-child(3) { order: 3 !important; }
 
-        /* 2. FORMAT THE DRAFT CELLS (Stop text wrap & shrink boxes) */
-        table td, table th, 
-        div[data-testid="stTable"] td, div[data-testid="stTable"] th {
-            white-space: nowrap !important;
-            padding: 4px 8px !important;
-            font-size: 11px !important;
+        /* 2. DRAFT BOARD FIX (Prevent Squish, Enable Panning) */
+        /* Forces the HTML table to render wide so the parent container becomes horizontally scrollable */
+        div[data-testid="stHorizontalBlock"] > div:nth-child(2) table {
+            min-width: 1200px !important; 
+        }
+
+        /* 3. PLAYER CARD REDESIGN (Tighter padding, smaller text and buttons) */
+        /* We use higher specificity here to ensure it overrides the styling generated in your Python loop */
+        div[data-testid="stVerticalBlock"] div[class*="st-key-card_"] {
+            padding: 6px 10px !important;
+            margin-bottom: 6px !important;
+        }
+        
+        /* Shrink the player name */
+        div[data-testid="stVerticalBlock"] div[class*="st-key-card_"] b {
+            font-size: 12px !important;
+        }
+        
+        /* Shrink the ADP stats and Team info */
+        div[data-testid="stVerticalBlock"] div[class*="st-key-card_"] div {
+            font-size: 10px !important;
+            line-height: 1.2 !important;
+        }
+        
+        /* Shrink the Draft / Force buttons strictly inside the player list */
+        div[data-testid="stVerticalBlock"] div[class*="st-key-card_"] button {
+            min-height: 32px !important;
+            height: 32px !important;
+            padding: 0px 8px !important;
+            font-size: 12px !important;
         }
     }
     </style>

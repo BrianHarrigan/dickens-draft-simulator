@@ -17,14 +17,16 @@ from config import (
 
 st.set_page_config(
     page_title="Dickens Draft Simulator",
-    page_icon=":pig_nose:"
+    page_icon=":pig_nose:",
+    layout="wide"
 )
 
+# 1. Global CSS: Flips layout for mobile and kills Streamlit's massive hidden margins
 st.markdown(
     """
     <style>
     @media (max-width: 767px) {
-        /* 1. Stack the main layout (Draft Board on top) */
+        /* Stack the main layout (Draft Board on top) */
         div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
@@ -33,12 +35,12 @@ st.markdown(
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
 
-        /* 2. Prevent Draft Board Squish */
+        /* Prevent Draft Board Squish so it can pan */
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) table {
             min-width: 1200px !important; 
         }
 
-        /* 3. Kill Streamlit's default hidden whitespace between elements */
+        /* Kill Streamlit's default hidden whitespace between elements */
         div[data-testid="stVerticalBlock"] {
             gap: 0px !important;
         }
@@ -72,7 +74,6 @@ components.html(
 )
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-st.set_page_config(page_title="Dickens League Draft Simulator", layout="wide")
 
 st.markdown(
     """
@@ -134,39 +135,8 @@ def generate_fallback_csv():
     df.to_csv(CSV_FILENAME, index=False)
     return df
 
-def process_cbs_html_content(html_content):
-    cbs_rank_map = {}
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
-    author_blocks = soup.find_all('div', class_='author-block')
-    consensus_container = None
-    for block in author_blocks:
-        if 'consensus' in block.text.lower():
-            consensus_container = block.find_parent('div', class_='experts-column')
-            break
-            
-    target_area = consensus_container if consensus_container else soup
-    rows = target_area.find_all('div', class_='player-row')
-    
-    for row in rows:
-        rank_elem = row.find('div', class_='rank')
-        link_elem = row.find('a')
-        
-        if rank_elem and link_elem:
-            try:
-                rank_val = float(rank_elem.text.strip())
-                href = link_elem.get('href', '')
-                
-                slug_match = re.search(r'/nfl/players/\d+/([^/]+)/fantasy/', href)
-                if slug_match:
-                    full_name = normalize_name(slug_match.group(1).replace('-', ' '))
-                    cbs_rank_map[full_name] = rank_val
-            except ValueError:
-                continue
-    return cbs_rank_map
-
-def update_live_adps(uploaded_html_file=None):
-    st.info("Fetching live ADP data from FFC/CBS and parsing uploaded HTML...")
+def update_live_adps():
+    st.info("Fetching live ADP data from FFC and CBS...")
     ffc_url = "https://fantasyfootballcalculator.com/adp/csv/ppr.csv"
     cbs_adp_url = "https://www.cbssports.com/fantasy/football/draft/averages/ppr/both/h2h/all/"
     
@@ -174,17 +144,8 @@ def update_live_adps(uploaded_html_file=None):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
-    cbs_rank_map = {}
     cbs_adp_map = {}
     
-    if uploaded_html_file is not None:
-        try:
-            html_content = uploaded_html_file.read().decode('utf-8')
-            cbs_rank_map = process_cbs_html_content(html_content)
-            st.success(f"Parsed {len(cbs_rank_map)} CBS Consensus ranks from HTML!")
-        except Exception as e:
-            st.warning(f"Could not parse uploaded CBS HTML: {e}")
-
     try:
         cbs_resp = requests.get(cbs_adp_url, headers=headers, verify=False, timeout=10)
         cbs_tables = pd.read_html(StringIO(cbs_resp.text), flavor='lxml')
@@ -215,7 +176,7 @@ def update_live_adps(uploaded_html_file=None):
                 
                 ffc_adp = float(row.get('Overall', idx + 1))
                 cbs_adp = cbs_adp_map.get(clean_n, ffc_adp)
-                cbs_rank = cbs_rank_map.get(clean_n, 999.0)
+                cbs_rank = 999.0 # Default fallback since manual CBS HTML is removed
                 
                 players.append({
                     "Rank": int(idx + 1),
@@ -296,17 +257,17 @@ def execute_cpu_pick(team_name, current_pick_num):
     favored_nfl_teams = bias_info["teams"]
     nfl_boost_val = bias_info["boost"]
     
-    # 1. Establish Effective ADP (CBS -> FFC -> Current Pick fallback)
+    # Establish Effective ADP (CBS -> FFC -> Current Pick fallback)
     df_avail['Effective_ADP'] = df_avail.apply(
         lambda r: r['CBS ADP'] if (pd.notna(r['CBS ADP']) and r['CBS ADP'] < 900) 
         else (r['FFC ADP'] if (pd.notna(r['FFC ADP']) and r['FFC ADP'] < 900) else float(current_pick_num)), 
         axis=1
     )
     
-    # CRITICAL FIX: Sort by Effective_ADP so df_avail is ordered by draft value, not CSV Rank!
+    # Sort by Effective_ADP so df_avail is ordered by draft value
     df_avail = df_avail.sort_values(by='Effective_ADP').reset_index(drop=True)
     
-    # 2. COMBINE TOP CANDIDATES WITH ALL FALLEN VALUE PLAYERS
+    # COMBINE TOP CANDIDATES WITH ALL FALLEN VALUE PLAYERS
     top_by_adp = df_avail.head(pool_size)
     fallen_players = df_avail[df_avail['Effective_ADP'] < current_pick_num]
     top_candidates = pd.concat([top_by_adp, fallen_players]).drop_duplicates(subset=['Player']).reset_index(drop=True)
@@ -324,7 +285,7 @@ def execute_cpu_pick(team_name, current_pick_num):
         
         adp = row['Effective_ADP']
         
-        # 3. SCALING WEIGHT FOR FALLEN PLAYERS
+        # SCALING WEIGHT FOR FALLEN PLAYERS
         if adp >= current_pick_num:
             w_adp = math.exp(-((adp - current_pick_num)**2) / (2 * (sigma**2)))
         else:
@@ -348,22 +309,11 @@ def execute_cpu_pick(team_name, current_pick_num):
     
 with st.popover("⚙️ Settings"):
     st.markdown("### Draft Controls")
-    
-    if "screenshot_mode" not in st.session_state:
-        st.session_state.screenshot_mode = False
-
-    if st.button("📸 Mobile Screenshot View", use_container_width=True):
-        st.session_state.screenshot_mode = not st.session_state.screenshot_mode
-        st.rerun()
-
-    st.divider()
-
     st.write("Wipe the board and start a new mock draft.")
     if st.button("🧨 Reset Draft", use_container_width=True):
         st.session_state.draft_history = []
         st.session_state.current_pick = 1
         st.session_state.available_players = load_data()
-        st.session_state.screenshot_mode = False
         st.rerun()
 
 current_turn_index = st.session_state.current_pick - 1
@@ -407,7 +357,7 @@ with col_left:
             pk = int((active_adp - 1) % 12) + 1 if pd.notna(active_adp) and active_adp < 999 else 1
             
             card_color = get_color(row['Position'])
-            btn_label = "Draft" if team_on_clock == "Slampigskins" else "Force"
+            btn_label = "✅" if team_on_clock == "Slampigskins" else "➕"
             
             cbs_adp_text = f"<b>CBS ADP:</b> {row.get('CBS ADP', 0.0)}" if sort_option == "CBS ADP" else f"CBS ADP: {row.get('CBS ADP', 0.0)}"
             current_rank_val = int(row.get('CBS Rank', 999)) if sort_option == "CBS Rank" and row.get('CBS Rank', 999) < 900 else int(row.get('Rank', 1))
@@ -438,6 +388,8 @@ with col_left:
                 box_shadow = ""
 
             card_key = f"card_{idx}"
+            
+            # This handles both Desktop (Standard) and Mobile (Surgical) card styling
             st.markdown(f"""
             <style>
             /* Default Desktop Style */
@@ -549,7 +501,6 @@ with col_board:
                     st.session_state.time_left = 120
                     st.rerun()
             with col_b2:
-                # 🚨 CRITICAL FIX: Ordered to prevent IndexError at pick 193
                 if st.button("⏩ Sim to Me"):
                     while st.session_state.current_pick <= len(DRAFT_ORDER) and DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins":
                         current_team = DRAFT_ORDER[st.session_state.current_pick - 1]
@@ -563,64 +514,32 @@ with col_board:
 
     st.markdown("---")
 
-    is_screenshot = st.session_state.get("screenshot_mode", False)
+    # Permanent compact draft board layout
+    table_html = """
+    <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
+    <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 6.5px; font-family: sans-serif;'>
+    """
+    table_html += "<tr><th style='border: 1px solid black; padding: 1px; background-color: #dcdcdc; width: 5%; font-weight: bold;'>Rd</th>"
+    for team in TEAMS:
+        table_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #f0f0f0; overflow: hidden; white-space: nowrap;'>{team[:3]}</th>"
+    table_html += "</tr>"
 
-    if is_screenshot:
-        st.info("📸 **Screenshot Mode Active:** Click below when finished to return to normal view.")
-        if st.button("✖️ Exit Screenshot View", use_container_width=True):
-            st.session_state.screenshot_mode = False
-            st.rerun()
-
-        table_html = """
-        <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow: hidden;'>
-        <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 6.5px; font-family: sans-serif;'>
-        """
-        table_html += "<tr><th style='border: 1px solid black; padding: 1px; background-color: #dcdcdc; width: 5%; font-weight: bold;'>Rd</th>"
-        for team in TEAMS:
-            table_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #f0f0f0; overflow: hidden; white-space: nowrap;'>{team[:3]}</th>"
-        table_html += "</tr>"
-
-        for round_num in range(1, 17):
-            table_html += "<tr>"
-            table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 1px; height: 22px;'>R{round_num}</td>"
-            for col_idx in range(12):
-                actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
-                pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
-                if pick:
-                    color = get_color(pick['Position'])
-                    short_name = make_short_name(pick['Player'])
-                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 1px; height: 22px; line-height: 1.0; overflow: hidden;'><b>{short_name}</b><br>{pick['Position']}</td>"
-                else:
-                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #b0b0b0; padding: 1px; height: 22px; font-size: 6px;'>{actual_pick_num}</td>"
-            table_html += "</tr>"
-        table_html += "</table></div>"
-        st.markdown(table_html, unsafe_allow_html=True)
-
-    else:
-        table_html = """
-        <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
-        <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif;'>
-        """
+    for round_num in range(1, 17):
         table_html += "<tr>"
-        table_html += "<th style='border: 1px solid black; padding: 4px; background-color: #dcdcdc; width: 4%; font-weight: bold;'>Rd</th>"
-        for team in TEAMS:
-            table_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; width: 8%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{team}</th>"
+        table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 1px; height: 22px;'>R{round_num}</td>"
+        for col_idx in range(12):
+            actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
+            pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
+            if pick:
+                color = get_color(pick['Position'])
+                short_name = make_short_name(pick['Player'])
+                table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 1px; height: 22px; line-height: 1.0; overflow: hidden;'><b>{short_name}</b><br>{pick['Position']}</td>"
+            else:
+                table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #b0b0b0; padding: 1px; height: 22px; font-size: 6px;'>{actual_pick_num}</td>"
         table_html += "</tr>"
+    table_html += "</table></div>"
+    st.markdown(table_html, unsafe_allow_html=True)
 
-        for round_num in range(1, 17):
-            table_html += "<tr>"
-            table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 2px; height: 45px;'>R{round_num}</td>"
-            for col_idx in range(12):
-                actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
-                pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
-                if pick:
-                    color = get_color(pick['Position'])
-                    table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 3px; line-height: 1.2; height: 45px; overflow: hidden;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
-                else:
-                    table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 3px; height: 45px;'><i>Pick {actual_pick_num}</i></td>"
-            table_html += "</tr>"
-        table_html += "</table></div>"
-        st.markdown(table_html, unsafe_allow_html=True)
 
 with col_roster:
     st.subheader("🛡️ Slampigskins Roster")

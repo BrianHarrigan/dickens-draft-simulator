@@ -506,10 +506,12 @@ with col_board:
     with col_sim1:
         render_clock(team_on_clock)
     with col_sim2:
-        if team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
-            col_b1, col_b2 = st.columns(2)
-            with col_b1:
-                if st.button("🤖 Sim Pick"):
+        # We draw the columns regardless of whose turn it is so you can always access the toggle
+        col_b1, col_b2 = st.columns(2)
+        with col_b1:
+            # Only show the manual Sim button if it's the CPU's turn
+            if team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
+                if st.button("🤖 Sim Pick", use_container_width=True):
                     cpu_selection = execute_cpu_pick(team_on_clock, st.session_state.current_pick)
                     draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": team_on_clock, **cpu_selection.to_dict()}
                     st.session_state.draft_history.append(draft_item)
@@ -517,17 +519,22 @@ with col_board:
                     st.session_state.current_pick += 1
                     st.session_state.time_left = 120
                     st.rerun()
-            with col_b2:
-                if st.button("⏩ Sim to Me"):
-                    while st.session_state.current_pick <= len(DRAFT_ORDER) and DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins":
-                        current_team = DRAFT_ORDER[st.session_state.current_pick - 1]
-                        cpu_selection = execute_cpu_pick(current_team, st.session_state.current_pick)
-                        draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": current_team, **cpu_selection.to_dict()}
-                        st.session_state.draft_history.append(draft_item)
-                        st.session_state.available_players = st.session_state.available_players[st.session_state.available_players['Rank'] != cpu_selection['Rank']].reset_index(drop=True)
-                        st.session_state.current_pick += 1
-                    st.session_state.time_left = 120
-                    st.rerun()
+        with col_b2:
+            # The new toggle switch. It defaults to True (ON) immediately!
+            auto_sim = st.toggle("Auto-Sim", value=True, key="auto_sim_toggle")
+
+    # --- THE AUTO-SIM ENGINE ---
+    # If the toggle is ON, and it's the CPU's turn, it instantly simulates until you are up!
+    if st.session_state.get("auto_sim_toggle", True) and team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
+        while st.session_state.current_pick <= len(DRAFT_ORDER) and DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins":
+            current_team = DRAFT_ORDER[st.session_state.current_pick - 1]
+            cpu_selection = execute_cpu_pick(current_team, st.session_state.current_pick)
+            draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": current_team, **cpu_selection.to_dict()}
+            st.session_state.draft_history.append(draft_item)
+            st.session_state.available_players = st.session_state.available_players[st.session_state.available_players['Rank'] != cpu_selection['Rank']].reset_index(drop=True)
+            st.session_state.current_pick += 1
+        st.session_state.time_left = 120
+        st.rerun()
 
     st.markdown("---")
 

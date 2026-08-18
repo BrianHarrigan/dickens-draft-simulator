@@ -357,7 +357,7 @@ with col_left:
             pk = int((active_adp - 1) % 12) + 1 if pd.notna(active_adp) and active_adp < 999 else 1
             
             card_color = get_color(row['Position'])
-            btn_label = "✅" if team_on_clock == "Slampigskins" else "➕"
+            btn_label = "Draft" if team_on_clock == "Slampigskins" else "Force"
             
             cbs_adp_text = f"<b>CBS ADP:</b> {row.get('CBS ADP', 0.0)}" if sort_option == "CBS ADP" else f"CBS ADP: {row.get('CBS ADP', 0.0)}"
             current_rank_val = int(row.get('CBS Rank', 999)) if sort_option == "CBS Rank" and row.get('CBS Rank', 999) < 900 else int(row.get('Rank', 1))

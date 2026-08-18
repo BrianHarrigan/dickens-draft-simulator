@@ -21,27 +21,40 @@ st.set_page_config(
     layout="wide"
 )
 
-# 1. Global CSS: Controls the layout swap and dual-board visibility
 st.markdown(
     """
     <style>
-    /* Default to showing Desktop Board and hiding Mobile Board */
+    /* Default Desktop Board Visibility */
     .mobile-board-container { display: none !important; }
     .desktop-board-container { display: block !important; }
 
     @media (max-width: 767px) {
-        /* On mobile: Show Mobile Board and hide Desktop Board */
+        /* Swap to Mobile Board */
         .mobile-board-container { display: block !important; }
         .desktop-board-container { display: none !important; }
         
-        /* Stack the main layout (Draft Board on top) */
+        /* Stack ALL horizontal blocks vertically by default */
         div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
         }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) { order: 1 !important; }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
+
+        /* 
+         * SURGICAL REORDERING (Bulletproof)
+         * This targets ONLY columns that are part of a 3-column setup.
+         */
+        /* Left Column (Players) -> Moves to Middle */
+        div[data-testid="stHorizontalBlock"] > div:first-child:nth-last-child(3) { 
+            order: 2 !important; 
+        }
+        /* Middle Column (Draft Board) -> Jumps to Top */
+        div[data-testid="stHorizontalBlock"] > div:first-child:nth-last-child(3) ~ div:nth-child(2) { 
+            order: 1 !important; 
+        }
+        /* Right Column (Roster) -> Stays at Bottom */
+        div[data-testid="stHorizontalBlock"] > div:first-child:nth-last-child(3) ~ div:nth-child(3) { 
+            order: 3 !important; 
+        }
 
         /* Kill Streamlit's default hidden whitespace between elements */
         div[data-testid="stVerticalBlock"] {
@@ -392,7 +405,6 @@ with col_left:
 
             card_key = f"card_{idx}"
             
-            # This handles both Desktop (Standard) and Mobile (Surgical) card styling
             st.markdown(f"""
             <style>
             /* Default Desktop Style */
@@ -407,7 +419,7 @@ with col_left:
 
             /* Mobile Style - Surgical Override for THIS specific card */
             @media (max-width: 767px) {{
-                /* 1. Shrink the box padding and kill the massive margins */
+                /* 1. Shrink the box padding */
                 div.st-key-{card_key} {{
                     padding: 4px 6px !important;
                     margin-bottom: 2px !important;
@@ -418,16 +430,18 @@ with col_left:
                     flex-direction: row !important;
                     align-items: center !important;
                 }}
-                div.st-key-{card_key} div[data-testid="column"]:nth-child(1) {{
-                    width: 75% !important;
-                    min-width: 75% !important;
+                
+                /* 3. Give text 70% and the word buttons 30% of the room */
+                div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(1) {{
+                    width: 70% !important;
+                    min-width: 70% !important;
                 }}
-                div.st-key-{card_key} div[data-testid="column"]:nth-child(2) {{
-                    width: 25% !important;
-                    min-width: 25% !important;
+                div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(2) {{
+                    width: 30% !important;
+                    min-width: 30% !important;
                 }}
 
-                /* 3. Shrink fonts and bring the ADP back */
+                /* 4. Shrink fonts and let ADP wrap naturally */
                 div.st-key-{card_key} div[style*="font-size: 12px"] {{
                     font-size: 10px !important;
                     line-height: 1.2 !important;
@@ -437,7 +451,7 @@ with col_left:
                     font-size: 12px !important;
                 }}
 
-                /* 4. Shrink the button */
+                /* 5. Shrink the button to tightly frame the words */
                 div.st-key-{card_key} button {{
                     min-height: 28px !important;
                     height: 28px !important;

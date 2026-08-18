@@ -240,6 +240,10 @@ if 'available_players' not in st.session_state:
 if 'time_left' not in st.session_state:
     st.session_state.time_left = 120
 
+# Permanent memory for the toggle that survives page reloads
+if 'auto_sim_preference' not in st.session_state:
+    st.session_state.auto_sim_preference = True
+
 def execute_cpu_pick(team_name, current_pick_num):   
     df_avail = st.session_state.available_players.copy()
  
@@ -487,7 +491,11 @@ with col_board:
             st.subheader("Draft Complete!")
             return
 
-        st.session_state.time_left -= 1
+        # ONLY tick the clock down if it is your turn! 
+        # (Allows you to stare at the board without the CPU auto-drafting)
+        if team_name == "Slampigskins":
+            st.session_state.time_left -= 1
+            
         mins = max(0, st.session_state.time_left // 60)
         secs = max(0, st.session_state.time_left % 60)
         
@@ -502,14 +510,12 @@ with col_board:
             st.session_state.current_pick += 1
             st.rerun()
 
-    col_sim1, col_sim2 = st.columns(2)
+col_sim1, col_sim2 = st.columns(2)
     with col_sim1:
         render_clock(team_on_clock)
     with col_sim2:
-        # We draw the columns regardless of whose turn it is so you can always access the toggle
         col_b1, col_b2 = st.columns(2)
         with col_b1:
-            # Only show the manual Sim button if it's the CPU's turn
             if team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
                 if st.button("🤖 Sim Pick", use_container_width=True):
                     cpu_selection = execute_cpu_pick(team_on_clock, st.session_state.current_pick)
@@ -520,12 +526,20 @@ with col_board:
                     st.session_state.time_left = 120
                     st.rerun()
         with col_b2:
-            # The new toggle switch. It defaults to True (ON) immediately!
-            auto_sim = st.toggle("Auto-Sim", value=True, key="auto_sim_toggle")
+            # Callback function to hard-save your choice the moment you click the toggle
+            def update_auto_sim():
+                st.session_state.auto_sim_preference = st.session_state.auto_sim_toggle_widget
 
-    # --- THE AUTO-SIM ENGINE ---
-    # If the toggle is ON, and it's the CPU's turn, it instantly simulates until you are up!
-    if st.session_state.get("auto_sim_toggle", True) and team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
+            st.toggle(
+                "Auto-Sim", 
+                value=st.session_state.auto_sim_preference, 
+                key="auto_sim_toggle_widget",
+                on_change=update_auto_sim
+            )
+
+    # --- THE BULLETPROOF AUTO-SIM ENGINE ---
+    # Now reads from your ironclad preference state!
+    if st.session_state.auto_sim_preference and team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
         while st.session_state.current_pick <= len(DRAFT_ORDER) and DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins":
             current_team = DRAFT_ORDER[st.session_state.current_pick - 1]
             cpu_selection = execute_cpu_pick(current_team, st.session_state.current_pick)

@@ -23,10 +23,8 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Apply these rules ONLY to mobile screens */
     @media (max-width: 767px) {
-        
-        /* 1. MAIN LAYOUT */
+        /* 1. Stack the main layout (Draft Board on top) */
         div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
@@ -35,66 +33,17 @@ st.markdown(
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
 
-        /* 2. DRAFT BOARD FIX */
+        /* 2. Prevent Draft Board Squish */
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) table {
             min-width: 1200px !important; 
         }
 
-        /* 3. FIX THE GAPS (Snaps the player cards tightly together) */
-        /* Targets Streamlit's hidden layout gaps strictly inside the Player List column */
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) div[data-testid="stVerticalBlock"] {
-            gap: 2px !important; 
+        /* 3. Kill Streamlit's default hidden whitespace between elements */
+        div[data-testid="stVerticalBlock"] {
+            gap: 0px !important;
         }
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) div.element-container {
+        div.element-container {
             margin-bottom: 0px !important;
-        }
-
-        /* 4. PLAYER CARDS: Side-by-side split */
-        div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] {
-            flex-direction: row !important; 
-            align-items: center !important;
-            gap: 4px !important;
-        }
-        
-        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) {
-            width: 80% !important;
-            flex: 1 1 80% !important;
-            min-width: 0 !important;
-            order: 1 !important;
-        }
-        
-        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(2) {
-            width: 20% !important;
-            flex: 0 0 20% !important;
-            min-width: 0 !important;
-            order: 2 !important;
-        }
-
-        /* 5. FIX THE MISSING ADP & CARD PADDING */
-        div[class*="st-key-card_"] {
-            padding: 4px 6px !important;
-            margin-bottom: 0px !important; /* Overrides the 8px in your Python code */
-        }
-        
-        div[class*="st-key-card_"] div[data-testid="column"]:nth-child(1) div {
-            font-size: 10px !important;
-            line-height: 1.2 !important;
-            white-space: normal !important; /* BRINGS ADP BACK */
-            overflow: visible !important;
-        }
-        div[class*="st-key-card_"] b {
-            font-size: 12px !important;
-        }
-        div[class*="st-key-card_"] p {
-            margin-bottom: 0px !important;
-        }
-
-        /* 6. STYLE THE BUTTON */
-        div[class*="st-key-card_"] button {
-            min-height: 28px !important;
-            height: 28px !important;
-            padding: 0px 2px !important;
-            font-size: 11px !important;
         }
     }
     </style>
@@ -491,6 +440,7 @@ with col_left:
             card_key = f"card_{idx}"
             st.markdown(f"""
             <style>
+            /* Default Desktop Style */
             div.st-key-{card_key} {{
                 background-color: {card_color} !important;
                 padding: 10px 15px !important;
@@ -498,6 +448,47 @@ with col_left:
                 border: {border_style} !important;
                 {box_shadow}
                 margin-bottom: 8px !important;
+            }}
+
+            /* Mobile Style - Surgical Override for THIS specific card */
+            @media (max-width: 767px) {{
+                /* 1. Shrink the box padding and kill the massive margins */
+                div.st-key-{card_key} {{
+                    padding: 4px 6px !important;
+                    margin-bottom: 2px !important;
+                }}
+                
+                /* 2. Force text and button to stay side-by-side */
+                div.st-key-{card_key} div[data-testid="stHorizontalBlock"] {{
+                    flex-direction: row !important;
+                    align-items: center !important;
+                }}
+                div.st-key-{card_key} div[data-testid="column"]:nth-child(1) {{
+                    width: 75% !important;
+                    min-width: 75% !important;
+                }}
+                div.st-key-{card_key} div[data-testid="column"]:nth-child(2) {{
+                    width: 25% !important;
+                    min-width: 25% !important;
+                }}
+
+                /* 3. Shrink fonts and bring the ADP back */
+                div.st-key-{card_key} div[style*="font-size: 12px"] {{
+                    font-size: 10px !important;
+                    line-height: 1.2 !important;
+                    white-space: normal !important; 
+                }}
+                div.st-key-{card_key} b {{
+                    font-size: 12px !important;
+                }}
+
+                /* 4. Shrink the button */
+                div.st-key-{card_key} button {{
+                    min-height: 28px !important;
+                    height: 28px !important;
+                    padding: 0px 2px !important;
+                    font-size: 11px !important;
+                }}
             }}
             </style>
             """, unsafe_allow_html=True)

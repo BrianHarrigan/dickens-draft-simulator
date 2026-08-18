@@ -21,11 +21,19 @@ st.set_page_config(
     layout="wide"
 )
 
-# 1. Global CSS: Flips layout for mobile and kills Streamlit's massive hidden margins
+# 1. Global CSS: Controls the layout swap and dual-board visibility
 st.markdown(
     """
     <style>
+    /* Default to showing Desktop Board and hiding Mobile Board */
+    .mobile-board-container { display: none !important; }
+    .desktop-board-container { display: block !important; }
+
     @media (max-width: 767px) {
+        /* On mobile: Show Mobile Board and hide Desktop Board */
+        .mobile-board-container { display: block !important; }
+        .desktop-board-container { display: none !important; }
+        
         /* Stack the main layout (Draft Board on top) */
         div[data-testid="stHorizontalBlock"] {
             display: flex !important;
@@ -34,11 +42,6 @@ st.markdown(
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) { order: 1 !important; }
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
         div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
-
-        /* Prevent Draft Board Squish so it can pan */
-        div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) table {
-            min-width: 1200px !important; 
-        }
 
         /* Kill Streamlit's default hidden whitespace between elements */
         div[data-testid="stVerticalBlock"] {
@@ -514,31 +517,64 @@ with col_board:
 
     st.markdown("---")
 
-    # Permanent compact draft board layout
-    table_html = """
-    <div style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
-    <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 6.5px; font-family: sans-serif;'>
+    # --- DUAL BOARD RENDER LOGIC ---
+
+    # Desktop Full Board HTML (Hidden on Mobile via CSS)
+    desktop_html = """
+    <div class='desktop-board-container' style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
+    <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif;'>
     """
-    table_html += "<tr><th style='border: 1px solid black; padding: 1px; background-color: #dcdcdc; width: 5%; font-weight: bold;'>Rd</th>"
+    desktop_html += "<tr>"
+    desktop_html += "<th style='border: 1px solid black; padding: 4px; background-color: #dcdcdc; width: 4%; font-weight: bold;'>Rd</th>"
     for team in TEAMS:
-        table_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #f0f0f0; overflow: hidden; white-space: nowrap;'>{team[:3]}</th>"
-    table_html += "</tr>"
+        desktop_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; width: 8%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{team}</th>"
+    desktop_html += "</tr>"
+
+    # Mobile Compact Board HTML (Hidden on Desktop via CSS)
+    mobile_html = """
+    <div class='mobile-board-container' style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
+    <table style='min-width: max-content; width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 6.5px; font-family: sans-serif;'>
+    """
+    mobile_html += "<tr><th style='border: 1px solid black; padding: 1px; background-color: #dcdcdc; width: 5%; font-weight: bold;'>Rd</th>"
+    for team in TEAMS:
+        mobile_html += f"<th style='border: 1px solid black; padding: 1px; background-color: #f0f0f0; overflow: hidden; white-space: nowrap;'>{team[:3]}</th>"
+    mobile_html += "</tr>"
 
     for round_num in range(1, 17):
-        table_html += "<tr>"
-        table_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 1px; height: 22px;'>R{round_num}</td>"
+        desktop_html += "<tr>"
+        mobile_html += "<tr>"
+        
+        desktop_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 2px; height: 45px;'>R{round_num}</td>"
+        mobile_html += f"<td style='border: 1px solid black; background-color: #f0f0f0; font-weight: bold; color: #333333; padding: 1px; height: 22px;'>R{round_num}</td>"
+        
         for col_idx in range(12):
             actual_pick_num = (round_num - 1) * 12 + col_idx + 1 if round_num % 2 != 0 else (round_num - 1) * 12 + (11 - col_idx) + 1
             pick = next((p for p in st.session_state.draft_history if p['Pick'] == actual_pick_num), None)
+            
             if pick:
                 color = get_color(pick['Position'])
+                
+                # Desktop Cell Data
+                desktop_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 3px; line-height: 1.2; height: 45px; overflow: hidden;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
+                
+                # Mobile Cell Data
                 short_name = make_short_name(pick['Player'])
-                table_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 1px; height: 22px; line-height: 1.0; overflow: hidden;'><b>{short_name}</b><br>{pick['Position']}</td>"
+                mobile_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 1px; height: 22px; line-height: 1.0; overflow: hidden;'><b>{short_name}</b><br>{pick['Position']}</td>"
             else:
-                table_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #b0b0b0; padding: 1px; height: 22px; font-size: 6px;'>{actual_pick_num}</td>"
-        table_html += "</tr>"
-    table_html += "</table></div>"
-    st.markdown(table_html, unsafe_allow_html=True)
+                # Desktop Empty Cell
+                desktop_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 3px; height: 45px;'><i>Pick {actual_pick_num}</i></td>"
+                
+                # Mobile Empty Cell
+                mobile_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #b0b0b0; padding: 1px; height: 22px; font-size: 6px;'>{actual_pick_num}</td>"
+                
+        desktop_html += "</tr>"
+        mobile_html += "</tr>"
+
+    desktop_html += "</table></div>"
+    mobile_html += "</table></div>"
+
+    # Merge and render both strings. CSS media queries will handle which one is visible!
+    st.markdown(desktop_html + mobile_html, unsafe_allow_html=True)
 
 
 with col_roster:

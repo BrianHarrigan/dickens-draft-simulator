@@ -510,7 +510,8 @@ with col_board:
             st.session_state.current_pick += 1
             st.rerun()
 
-col_sim1, col_sim2 = st.columns(2)
+    # --- PROPERLY INDENTED COLUMN BLOCK ---
+    col_sim1, col_sim2 = st.columns(2)
     with col_sim1:
         render_clock(team_on_clock)
     with col_sim2:

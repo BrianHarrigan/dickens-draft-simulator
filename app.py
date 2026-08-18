@@ -16,10 +16,12 @@ from config import (
 )
 
 st.set_page_config(
-    page_title="Dickens Draft Simulator",
+    page_title="Slamulator",
     page_icon=":pig_nose:",
     layout="wide"
 )
+
+st.image("static/slamulator_header.jfif", use_container_width=True)
 
 st.markdown(
     """
@@ -411,22 +413,45 @@ with col_left:
             
             st.markdown(f"""
             <style>
-            /* Default Desktop Style */
+            /* -----------------------------------------------------
+               PREMIUM DESKTOP STYLE (Glossy Trading Card Vibe)
+               ----------------------------------------------------- */
             div.st-key-{card_key} {{
+                /* Creates a sleek gradient using your existing position colors */
+                background: linear-gradient(135deg, {card_color} 0%, rgba(20,20,20,0.05) 100%) !important;
                 background-color: {card_color} !important;
-                padding: 10px 15px !important;
-                border-radius: 8px !important;
+                padding: 12px 16px !important;
+                border-radius: 12px !important; /* Softer, rounder corners */
                 border: {border_style} !important;
-                {box_shadow}
-                margin-bottom: 8px !important;
+                /* Adds a floating soft shadow */
+                box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1) !important; 
+                margin-bottom: 12px !important;
+                transition: transform 0.2s ease-in-out;
+            }}
+            
+            /* Adds a slight hover effect on PC */
+            div.st-key-{card_key}:hover {{
+                transform: translateY(-2px);
             }}
 
-            /* Mobile Style - Surgical Override for THIS specific card */
+            /* Style the button to look like a premium app pill */
+            div.st-key-{card_key} button {{
+                border-radius: 20px !important;
+                font-weight: bold !important;
+                border: 1px solid rgba(0,0,0,0.1) !important;
+                box-shadow: 0px 2px 4px rgba(0,0,0,0.05) !important;
+            }}
+
+            /* -----------------------------------------------------
+               PREMIUM MOBILE STYLE
+               ----------------------------------------------------- */
             @media (max-width: 767px) {{
-                /* 1. Shrink the box padding */
+                /* 1. Shrink padding but keep the rounded, floating look */
                 div.st-key-{card_key} {{
-                    padding: 4px 6px !important;
-                    margin-bottom: 2px !important;
+                    padding: 6px 8px !important;
+                    margin-bottom: 6px !important;
+                    border-radius: 8px !important;
+                    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1) !important; 
                 }}
                 
                 /* 2. Force text and button to stay side-by-side */
@@ -445,22 +470,26 @@ with col_left:
                     min-width: 30% !important;
                 }}
 
-                /* 4. Shrink fonts and let ADP wrap naturally */
+                /* 4. Sleek Mobile Typography */
                 div.st-key-{card_key} div[style*="font-size: 12px"] {{
                     font-size: 10px !important;
-                    line-height: 1.2 !important;
+                    line-height: 1.3 !important;
                     white-space: normal !important; 
+                    color: #333 !important; /* Slightly softer than pure black */
                 }}
                 div.st-key-{card_key} b {{
-                    font-size: 12px !important;
+                    font-size: 13px !important;
+                    letter-spacing: -0.2px !important; /* Tighter tracking looks more modern */
                 }}
 
-                /* 5. Shrink the button to tightly frame the words */
+                /* 5. The Mobile Pill Button */
                 div.st-key-{card_key} button {{
-                    min-height: 28px !important;
-                    height: 28px !important;
-                    padding: 0px 2px !important;
+                    min-height: 30px !important;
+                    height: 30px !important;
+                    padding: 0px 4px !important;
                     font-size: 11px !important;
+                    border-radius: 15px !important; /* Full pill shape */
+                    background-color: rgba(255,255,255,0.9) !important; /* Subtle frosted glass effect */
                 }}
             }}
             </style>

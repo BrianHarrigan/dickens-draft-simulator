@@ -16,7 +16,7 @@ from config import (
 )
 
 st.set_page_config(
-    page_title="Dickens Draft Simulator",
+    page_title="Slamulator '26",
     page_icon=":pig_nose:",
     layout="wide"
 )

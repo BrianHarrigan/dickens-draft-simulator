@@ -667,7 +667,7 @@ with col_board:
 
 
 with col_roster:
-    st.subheader("🛡️ Slampigskins Roster")
+    st.subheader("🐽 Slampigskins Roster")
     
     my_picks = [p for p in st.session_state.draft_history if p['FantasyTeam'] == "Slampigskins"]
     for p in my_picks:

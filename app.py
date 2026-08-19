@@ -265,16 +265,23 @@ def execute_cpu_pick(team_name, current_pick_num):
 
     team_roster = [p['Position'] for p in st.session_state.draft_history if p['FantasyTeam'] == team_name]
     
-    needs = {"QB": 1.0, "RB": 1.0, "WR": 1.0, "TE": 1.0, "K": 0.5, "DST": 0.5}
+    # 1. Base positional needs (K and DST locked to 0.0 in early rounds)
+    needs = {"QB": 1.0, "RB": 1.0, "WR": 1.0, "TE": 1.0, "K": 0.0, "DST": 0.0}
     for pos in ["QB", "TE"]:
-        if team_roster.count(pos) >= 1: needs[pos] = 0.3
-    if current_pick_num > 84 and team_roster.count("QB") == 0: needs["QB"] = 1.8
-    if team_roster.count("RB") >= 3: needs["RB"] = 0.7
-    if team_roster.count("WR") >= 3: needs["WR"] = 0.7
+        if team_roster.count(pos) >= 1: 
+            needs[pos] = 0.3
+            
+    if current_pick_num > 84 and team_roster.count("QB") == 0: 
+        needs["QB"] = 1.8
+    if team_roster.count("RB") >= 3: 
+        needs["RB"] = 0.7
+    if team_roster.count("WR") >= 3: 
+        needs["WR"] = 0.7
     
+    # K and DST become draftable only in late rounds (Picks 145+)
     if current_pick_num > 144:
-        if team_roster.count("K") == 0: needs["K"] = 2.0
-        if team_roster.count("DST") == 0: needs["DST"] = 2.0
+        needs["K"] = 2.0 if team_roster.count("K") == 0 else 0.1
+        needs["DST"] = 2.0 if team_roster.count("DST") == 0 else 0.1
     
     sigma = 1.5 if current_pick_num <= 48 else (3.0 if current_pick_num <= 120 else 5.5)
     pool_size = 4 if current_pick_num <= 48 else (8 if current_pick_num <= 120 else 16)
@@ -283,26 +290,43 @@ def execute_cpu_pick(team_name, current_pick_num):
     favored_nfl_teams = bias_info["teams"]
     nfl_boost_val = bias_info["boost"]
     
-    # Establish Effective ADP based on selected CPU strategy
+    # 2. Establish Effective ADP
     strategy = st.session_state.get("cpu_draft_strategy", "CBS ADP")
     
     def get_effective_value(r):
         if strategy == "CBS Consensus Rankings":
             val = r.get('CBS Rank', 999.0)
-            return val if pd.notna(val) and val < 900 else (r.get('CBS ADP', 999.0) if pd.notna(r.get('CBS ADP')) and r.get('CBS ADP') < 900 else float(current_pick_num))
+            if pd.notna(val) and val < 900:
+                return float(val)
+            cbs_adp = r.get('CBS ADP', 999.0)
+            if pd.notna(cbs_adp) and cbs_adp < 900: 
+                return float(cbs_adp)
+            ffc_adp = r.get('FFC ADP', 999.0)
+            if pd.notna(ffc_adp) and ffc_adp < 900: 
+                return float(ffc_adp)
+            return 999.0
+            
         elif strategy == "FFC ADP":
             val = r.get('FFC ADP', 999.0)
-            return val if pd.notna(val) and val < 900 else (r.get('CBS ADP', 999.0) if pd.notna(r.get('CBS ADP')) and r.get('CBS ADP') < 900 else float(current_pick_num))
+            if pd.notna(val) and val < 900:
+                return float(val)
+            cbs_adp = r.get('CBS ADP', 999.0)
+            if pd.notna(cbs_adp) and cbs_adp < 900: 
+                return float(cbs_adp)
+            return 999.0
+            
         else: # Default to CBS ADP
             val = r.get('CBS ADP', 999.0)
-            return val if pd.notna(val) and val < 900 else (r.get('FFC ADP', 999.0) if pd.notna(r.get('FFC ADP')) and r.get('FFC ADP') < 900 else float(current_pick_num))
+            if pd.notna(val) and val < 900:
+                return float(val)
+            ffc_adp = r.get('FFC ADP', 999.0)
+            if pd.notna(ffc_adp) and ffc_adp < 900: 
+                return float(ffc_adp)
+            return 999.0
 
     df_avail['Effective_ADP'] = df_avail.apply(get_effective_value, axis=1)
-    
-    # Sort by Effective_ADP so df_avail is ordered by draft value
     df_avail = df_avail.sort_values(by='Effective_ADP').reset_index(drop=True)
     
-    # COMBINE TOP CANDIDATES WITH ALL FALLEN VALUE PLAYERS
     top_by_adp = df_avail.head(pool_size)
     fallen_players = df_avail[df_avail['Effective_ADP'] < current_pick_num]
     top_candidates = pd.concat([top_by_adp, fallen_players]).drop_duplicates(subset=['Player']).reset_index(drop=True)
@@ -320,7 +344,6 @@ def execute_cpu_pick(team_name, current_pick_num):
         
         adp = row['Effective_ADP']
         
-        # SCALING WEIGHT FOR FALLEN PLAYERS
         if adp >= current_pick_num:
             w_adp = math.exp(-((adp - current_pick_num)**2) / (2 * (sigma**2)))
         else:
@@ -338,6 +361,13 @@ def execute_cpu_pick(team_name, current_pick_num):
                 player_score *= 1.2  
                 
         scores.append(player_score)
+    
+    # Fallback to prevent 0-weight issues
+    if sum(scores) <= 0:
+        valid_pool = top_candidates[~top_candidates['Position'].isin(['K', 'DST'])]
+        if not valid_pool.empty:
+            return valid_pool.iloc[0]
+        return top_candidates.iloc[0]
         
     chosen_index = random.choices(range(len(scores)), weights=scores, k=1)[0]
     return top_candidates.iloc[chosen_index]

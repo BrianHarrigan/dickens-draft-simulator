@@ -28,10 +28,21 @@ st.markdown(
     .mobile-board-container { display: none !important; }
     .desktop-board-container { display: block !important; }
 
+    /* Desktop: Center and limit logo size */
+    div[data-testid="stImage"] img {
+        margin: 0 auto;
+        display: block;
+        max-width: 420px;
+    }
+
     @media (max-width: 767px) {
         /* Swap to Mobile Board */
         .mobile-board-container { display: block !important; }
         .desktop-board-container { display: none !important; }
+
+        div[data-testid="stImage"] img {
+            max-width: 280px;
+        }
         
         /* Stack ALL horizontal blocks vertically by default */
         div[data-testid="stHorizontalBlock"] {
@@ -40,7 +51,6 @@ st.markdown(
         }
 
         /* 
-         * SURGICAL REORDERING (Bulletproof)
          * This targets ONLY columns that are part of a 3-column setup.
          */
         /* Left Column (Players) -> Moves to Middle */
@@ -372,22 +382,30 @@ def execute_cpu_pick(team_name, current_pick_num):
     chosen_index = random.choices(range(len(scores)), weights=scores, k=1)[0]
     return top_candidates.iloc[chosen_index]
     
-with st.popover("⚙️ Settings"):
-    st.markdown("### Draft Controls")
-    
-    # NEW: CPU Strategy Selector
-    st.selectbox(
-        "CPU Draft Board Strategy",
-        options=["CBS ADP", "CBS Consensus Rankings", "FFC ADP"],
-        key="cpu_draft_strategy"
-    )
-    
-    st.write("Wipe the board and start a new mock draft.")
-    if st.button("🧨 Reset Draft", use_container_width=True):
-        st.session_state.draft_history = []
-        st.session_state.current_pick = 1
-        st.session_state.available_players = load_data()
-        st.rerun()
+col_head_left, col_head_center, col_head_right = st.columns([1, 2, 1])
+
+with col_head_left:
+    with st.popover("⚙️ Settings"):
+        st.markdown("### Draft Controls")
+        
+        st.selectbox(
+            "CPU Draft Board Strategy",
+            options=["CBS ADP", "CBS Consensus Rankings", "FFC ADP"],
+            key="cpu_draft_strategy"
+        )
+        
+        st.write("Wipe the board and start a new mock draft.")
+        if st.button("🧨 Reset Draft", use_container_width=True):
+            st.session_state.draft_history = []
+            st.session_state.current_pick = 1
+            st.session_state.available_players = load_data()
+            st.rerun()
+
+with col_head_center:
+    st.image("static/slamulator_logo.jfif", use_container_width=True)
+
+with col_head_right:
+    st.write("")
 
 current_turn_index = st.session_state.current_pick - 1
 team_on_clock = DRAFT_ORDER[current_turn_index] if current_turn_index < len(DRAFT_ORDER) else "Draft Complete"

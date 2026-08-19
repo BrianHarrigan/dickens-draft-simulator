@@ -24,15 +24,29 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Default Desktop Board Visibility */
+    /* 1. Remove excess white space at the top of the browser page */
+    .main .block-container {
+        padding-top: 0.5rem !important;
+        padding-bottom: 1rem !important;
+    }
+
+    /* 2. Default Desktop Board Visibility */
     .mobile-board-container { display: none !important; }
     .desktop-board-container { display: block !important; }
 
-    /* Desktop: Center and limit logo size */
-    div[data-testid="stImage"] img {
-        margin: 0 auto;
-        display: block;
-        max-width: 420px;
+    /* 3. Vertically center the header row and remove image margins */
+    div.st-key-header_bar div[data-testid="stHorizontalBlock"] {
+        align-items: center !important;
+    }
+    div.st-key-header_bar div[data-testid="stImage"] {
+        margin: 0 auto !important;
+        padding: 0 !important;
+    }
+    div.st-key-header_bar div[data-testid="stImage"] img {
+        margin: 0 auto !important;
+        display: block !important;
+        max-width: 340px !important;
+        height: auto !important;
     }
 
     @media (max-width: 767px) {
@@ -40,38 +54,41 @@ st.markdown(
         .mobile-board-container { display: block !important; }
         .desktop-board-container { display: none !important; }
 
-        div[data-testid="stImage"] img {
-            max-width: 280px;
+        /* Keep header row strictly horizontal on mobile */
+        div.st-key-header_bar div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
         }
-        
-        /* Stack ALL horizontal blocks vertically by default */
-        div[data-testid="stHorizontalBlock"] {
+
+        /* Stack ONLY the 3 main draft columns (ignores header row) */
+        div.main div[data-testid="stHorizontalBlock"]:not(.st-key-header_bar *) {
             display: flex !important;
             flex-direction: column !important;
         }
 
-        /* 
-         * This targets ONLY columns that are part of a 3-column setup.
-         */
-        /* Left Column (Players) -> Moves to Middle */
-        div[data-testid="stHorizontalBlock"] > div:first-child:nth-last-child(3) { 
+        /* Reorder ONLY the 3 main draft columns on mobile */
+        div.main div[data-testid="stHorizontalBlock"]:not(.st-key-header_bar *) > div:first-child:nth-last-child(3) { 
             order: 2 !important; 
         }
-        /* Middle Column (Draft Board) -> Jumps to Top */
-        div[data-testid="stHorizontalBlock"] > div:first-child:nth-last-child(3) ~ div:nth-child(2) { 
+        div.main div[data-testid="stHorizontalBlock"]:not(.st-key-header_bar *) > div:first-child:nth-last-child(3) ~ div:nth-child(2) { 
             order: 1 !important; 
         }
-        /* Right Column (Roster) -> Stays at Bottom */
-        div[data-testid="stHorizontalBlock"] > div:first-child:nth-last-child(3) ~ div:nth-child(3) { 
+        div.main div[data-testid="stHorizontalBlock"]:not(.st-key-header_bar *) > div:first-child:nth-last-child(3) ~ div:nth-child(3) { 
             order: 3 !important; 
         }
 
-        /* Kill Streamlit's default hidden whitespace between elements */
+        /* Tighten element gaps on mobile */
         div[data-testid="stVerticalBlock"] {
             gap: 0px !important;
         }
         div.element-container {
             margin-bottom: 0px !important;
+        }
+
+        /* Scale logo down for mobile screens */
+        div.st-key-header_bar div[data-testid="stImage"] img {
+            max-width: 220px !important;
         }
     }
     </style>
@@ -384,28 +401,35 @@ def execute_cpu_pick(team_name, current_pick_num):
     
 col_head_left, col_head_center, col_head_right = st.columns([1, 2, 1])
 
-with col_head_left:
-    with st.popover("⚙️ Settings"):
-        st.markdown("### Draft Controls")
-        
-        st.selectbox(
-            "CPU Draft Board Strategy",
-            options=["CBS ADP", "CBS Consensus Rankings", "FFC ADP"],
-            key="cpu_draft_strategy"
-        )
-        
-        st.write("Wipe the board and start a new mock draft.")
-        if st.button("🧨 Reset Draft", use_container_width=True):
-            st.session_state.draft_history = []
-            st.session_state.current_pick = 1
-            st.session_state.available_players = load_data()
-            st.rerun()
+# --- TOP HEADER ROW (Vertically Centered & Tight Spacing) ---
+with st.container(key="header_bar"):
+    col_head_left, col_head_center, col_head_right = st.columns(
+        [1, 4, 1], 
+        vertical_alignment="center"
+    )
 
-with col_head_center:
-    st.image("static/slamulator_logo.jfif", use_container_width=True)
+    with col_head_left:
+        with st.popover("⚙️ Settings"):
+            st.markdown("### Draft Controls")
+            
+            st.selectbox(
+                "CPU Draft Board Strategy",
+                options=["CBS ADP", "CBS Consensus Rankings", "FFC ADP"],
+                key="cpu_draft_strategy"
+            )
+            
+            st.write("Wipe the board and start a new mock draft.")
+            if st.button("🧨 Reset Draft", use_container_width=True):
+                st.session_state.draft_history = []
+                st.session_state.current_pick = 1
+                st.session_state.available_players = load_data()
+                st.rerun()
 
-with col_head_right:
-    st.write("")
+    with col_head_center:
+        st.image("static/slamulator_logo.jfif", use_container_width=True)
+
+    with col_head_right:
+        st.write("")
 
 current_turn_index = st.session_state.current_pick - 1
 team_on_clock = DRAFT_ORDER[current_turn_index] if current_turn_index < len(DRAFT_ORDER) else "Draft Complete"

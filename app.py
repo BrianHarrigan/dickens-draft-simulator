@@ -21,7 +21,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- GLOBAL STYLING (FLUSH TOP, BULLETPROOF REORDERING & CRISP MOBILE CARDS) ---
+# --- GLOBAL STYLING (PERFECT MOBILE REORDERING, CRISP CARDS & CLEAN SPACING) ---
 st.markdown(
     """
     <style>
@@ -75,39 +75,78 @@ st.markdown(
             max-width: 290px !important;
         }
 
-        /* 
-         * SURGICAL MOBILE REORDERING 
-         * Targets ONLY the 3 top-level columns inside main_layout
-         */
+        /* Main 3-Column Mobile Reordering (Draft Board to Top, Player List Below) */
         div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"],
         div[class*="st-key-main_layout"] > div > div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
         }
         div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
-            order: 2 !important; /* Player list below board */
+            order: 2 !important; /* Available Players */
             width: 100% !important;
         }
         div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-            order: 1 !important; /* Draft board on top */
+            order: 1 !important; /* Draft Board & Clock */
             width: 100% !important;
         }
         div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div:nth-child(3) {
-            order: 3 !important; /* Roster at bottom */
+            order: 3 !important; /* Slampigskins Roster */
             width: 100% !important;
         }
 
-        /* Keep the board controls row horizontal on mobile (Settings next to Auto-Sim) */
+        /* Controls row: Sim, Settings, and Auto-Sim side-by-side */
         div.st-key-board_controls_container div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
-            gap: 6px !important;
+            justify-content: space-between !important;
+            gap: 4px !important;
         }
 
-        /* Compact player list scroll container for mobile */
+        /* Player List Scroll Height */
         div.st-key-player_list_container {
             height: 460px !important;
+        }
+
+        /* Player Cards: Clean borders and no text leaking */
+        div[class*="st-key-card_"] {
+            padding: 6px 8px !important;
+            margin-bottom: 4px !important;
+            height: auto !important;
+            min-height: fit-content !important;
+        }
+        
+        div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+        }
+        
+        div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
+            width: 72% !important;
+            min-width: 72% !important;
+        }
+        div[class*="st-key-card_"] div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+            width: 26% !important;
+            min-width: 26% !important;
+        }
+
+        div[class*="st-key-card_"] .card-text-container {
+            font-size: 10px !important;
+            line-height: 1.25 !important;
+            margin: 0px !important;
+            word-break: break-word !important;
+        }
+        div[class*="st-key-card_"] .card-text-container b {
+            font-size: 12px !important;
+        }
+
+        div[class*="st-key-card_"] button {
+            min-height: 32px !important;
+            height: 32px !important;
+            padding: 0px 4px !important;
+            font-size: 11px !important;
         }
 
         div[data-testid="stVerticalBlock"] {
@@ -124,7 +163,7 @@ st.markdown(
 
 import streamlit.components.v1 as components
 
-# Custom App Icon Injection
+# App icon script
 components.html(
     """
     <script>
@@ -495,9 +534,9 @@ with st.container(key="main_layout"):
 
                 card_key = f"card_{idx}"
                 
+                # Dynamic background styling only
                 st.markdown(f"""
                 <style>
-                /* Default Desktop Style */
                 div.st-key-{card_key} {{
                     background-color: {card_color} !important;
                     padding: 8px 12px !important;
@@ -507,50 +546,6 @@ with st.container(key="main_layout"):
                     margin-bottom: 8px !important;
                     height: auto !important;
                     min-height: fit-content !important;
-                    overflow: visible !important;
-                }}
-
-                /* Mobile Card Override */
-                @media (max-width: 767px) {{
-                    div.st-key-{card_key} {{
-                        padding: 6px 8px !important;
-                        margin-bottom: 4px !important;
-                        height: auto !important;
-                        min-height: fit-content !important;
-                    }}
-                    
-                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] {
-                        display: flex !important;
-                        flex-direction: row !important;
-                        align-items: center !important;
-                        justify-content: space-between !important;
-                    }
-                    
-                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
-                        width: 72% !important;
-                        min-width: 72% !important;
-                    }
-                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
-                        width: 26% !important;
-                        min-width: 26% !important;
-                    }
-
-                    div.st-key-{card_key} .card-text-container {
-                        font-size: 10px !important;
-                        line-height: 1.3 !important;
-                        margin: 0px !important;
-                        word-break: break-word !important;
-                    }
-                    div.st-key-{card_key} .card-text-container b {
-                        font-size: 12px !important;
-                    }
-
-                    div.st-key-{card_key} button {
-                        min-height: 32px !important;
-                        height: 32px !important;
-                        padding: 0px 4px !important;
-                        font-size: 11px !important;
-                    }
                 }}
                 </style>
                 """, unsafe_allow_html=True)
@@ -603,7 +598,7 @@ with st.container(key="main_layout"):
             with col_sim1:
                 render_clock(team_on_clock)
             with col_sim2:
-                # Sim Pick, Settings, and Auto-Sim
+                # 3 columns: Sim Pick, Settings, and Auto-Sim (Settings is to the left of Auto-Sim)
                 col_b1, col_b2, col_b3 = st.columns([1, 1, 1.1], vertical_alignment="center")
                 with col_b1:
                     if team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":

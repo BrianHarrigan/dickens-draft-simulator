@@ -21,39 +21,58 @@ st.set_page_config(
     layout="wide"
 )
 
+# --- GLOBAL STYLING (ZERO TOP SPACE & FLUSH LOGO) ---
 st.markdown(
     """
     <style>
-    /* 1. Safely remove excess top page padding and invisible header */
-    [data-testid="stHeader"] {
+    /* 1. Completely collapse the Streamlit header bar */
+    header[data-testid="stHeader"], [data-testid="stHeader"], header {
         display: none !important;
+        height: 0px !important;
+        visibility: hidden !important;
     }
-    .main .block-container {
-        padding-top: 1rem !important;
-        margin-top: -40px !important;
+
+    /* 2. Drag the entire app container to the very top edge */
+    .main .block-container,
+    [data-testid="stMainBlockContainer"],
+    .block-container {
+        padding-top: 0rem !important;
+        margin-top: -65px !important; /* Physically pulls the logo flush to the top */
         padding-bottom: 1rem !important;
     }
 
-    /* 2. Desktop/Mobile Board Visibility */
+    /* 3. Desktop/Mobile Board Visibility */
     .mobile-board-container { display: none !important; }
     .desktop-board-container { display: block !important; }
 
-    /* 3. Center and size the main logo */
+    /* 4. Center and size the main logo */
     div[data-testid="stImage"] {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 10px;
+        display: flex !important;
+        justify-content: center !important;
+        margin-top: 0px !important;
+        margin-bottom: 15px !important;
+        padding: 0px !important;
     }
     div[data-testid="stImage"] img {
         max-width: 450px !important;
+        height: auto !important;
     }
 
     @media (max-width: 767px) {
+        .main .block-container,
+        [data-testid="stMainBlockContainer"],
+        .block-container {
+            padding-top: 0rem !important;
+            margin-top: -45px !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+        }
+
         .mobile-board-container { display: block !important; }
         .desktop-board-container { display: none !important; }
 
         div[data-testid="stImage"] img {
-            max-width: 320px !important;
+            max-width: 300px !important;
         }
 
         /* Reorder: Draft Board to Top (order 1), Player List below (order 2) */
@@ -84,8 +103,7 @@ st.markdown(
 
 import streamlit.components.v1 as components
 
-# This hidden script forcefully deletes the default Streamlit iOS icon
-# and replaces it with the custom Dickens draft simulator icon.
+# Replace default iOS icon with custom icon
 components.html(
     """
     <script>
@@ -205,7 +223,7 @@ def update_live_adps():
                 
                 ffc_adp = float(row.get('Overall', idx + 1))
                 cbs_adp = cbs_adp_map.get(clean_n, ffc_adp)
-                cbs_rank = 999.0 # Default fallback since manual CBS HTML is removed
+                cbs_rank = 999.0
                 
                 players.append({
                     "Rank": int(idx + 1),
@@ -266,7 +284,6 @@ if 'cpu_draft_strategy' not in st.session_state:
 def execute_cpu_pick(team_name, current_pick_num):   
     df_avail = st.session_state.available_players.copy()
  
-    # Check for manager-specific target override
     target_info = MANAGER_TARGETS.get(team_name)
     current_round = (current_pick_num - 1) // 12 + 1
     
@@ -278,7 +295,6 @@ def execute_cpu_pick(team_name, current_pick_num):
 
     team_roster = [p['Position'] for p in st.session_state.draft_history if p['FantasyTeam'] == team_name]
     
-    # 1. Base positional needs (K and DST locked to 0.0 in early rounds)
     needs = {"QB": 1.0, "RB": 1.0, "WR": 1.0, "TE": 1.0, "K": 0.0, "DST": 0.0}
     for pos in ["QB", "TE"]:
         if team_roster.count(pos) >= 1: 
@@ -291,7 +307,6 @@ def execute_cpu_pick(team_name, current_pick_num):
     if team_roster.count("WR") >= 3: 
         needs["WR"] = 0.7
     
-    # K and DST become draftable only in late rounds (Picks 145+)
     if current_pick_num > 144:
         needs["K"] = 2.0 if team_roster.count("K") == 0 else 0.1
         needs["DST"] = 2.0 if team_roster.count("DST") == 0 else 0.1
@@ -303,7 +318,6 @@ def execute_cpu_pick(team_name, current_pick_num):
     favored_nfl_teams = bias_info["teams"]
     nfl_boost_val = bias_info["boost"]
     
-    # 2. Establish Effective ADP
     strategy = st.session_state.get("cpu_draft_strategy", "CBS ADP")
     
     def get_effective_value(r):
@@ -328,7 +342,7 @@ def execute_cpu_pick(team_name, current_pick_num):
                 return float(cbs_adp)
             return 999.0
             
-        else: # Default to CBS ADP
+        else:
             val = r.get('CBS ADP', 999.0)
             if pd.notna(val) and val < 900:
                 return float(val)
@@ -375,7 +389,6 @@ def execute_cpu_pick(team_name, current_pick_num):
                 
         scores.append(player_score)
     
-    # Fallback to prevent 0-weight issues
     if sum(scores) <= 0:
         valid_pool = top_candidates[~top_candidates['Position'].isin(['K', 'DST'])]
         if not valid_pool.empty:
@@ -421,7 +434,7 @@ with st.container(key="main_layout"):
         if search_query:
             display_df = display_df[display_df['Player'].str.contains(search_query, case=False, na=False)].reset_index(drop=True)
             
-        # Increased to 750px so it perfectly aligns with the bottom of the PC Draft Board!
+        # Matches the PC Draft Board height exactly
         with st.container(height=750, key="player_list_container"):
             normalized_targets = [normalize_name(tp) for tp in TARGET_PLAYERS]
             normalized_sleepers = [normalize_name(sp) for sp in SLEEPER_PLAYERS]
@@ -476,21 +489,18 @@ with st.container(key="main_layout"):
                     margin-bottom: 8px !important;
                 }}
 
-                /* Mobile Style - Surgical Override for THIS specific card */
+                /* Mobile Style */
                 @media (max-width: 767px) {{
-                    /* 1. Shrink the box padding */
                     div.st-key-{card_key} {{
                         padding: 4px 6px !important;
                         margin-bottom: 2px !important;
                     }}
                     
-                    /* 2. Force text and button to stay side-by-side */
                     div.st-key-{card_key} div[data-testid="stHorizontalBlock"] {{
                         flex-direction: row !important;
                         align-items: center !important;
                     }}
                     
-                    /* 3. Give text 70% and the word buttons 30% of the room */
                     div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(1) {{
                         width: 70% !important;
                         min-width: 70% !important;
@@ -500,7 +510,6 @@ with st.container(key="main_layout"):
                         min-width: 30% !important;
                     }}
 
-                    /* 4. Shrink fonts and let ADP wrap naturally */
                     div.st-key-{card_key} div[style*="font-size: 12px"] {{
                         font-size: 10px !important;
                         line-height: 1.2 !important;
@@ -510,7 +519,6 @@ with st.container(key="main_layout"):
                         font-size: 12px !important;
                     }}
 
-                    /* 5. Shrink the button to tightly frame the words */
                     div.st-key-{card_key} button {{
                         min-height: 28px !important;
                         height: 28px !important;
@@ -546,8 +554,6 @@ with st.container(key="main_layout"):
                 st.subheader("Draft Complete!")
                 return
 
-            # ONLY tick the clock down if it is your turn! 
-            # (Allows you to stare at the board without the CPU auto-drafting)
             if team_name == "Slampigskins":
                 st.session_state.time_left -= 1
                 
@@ -565,7 +571,6 @@ with st.container(key="main_layout"):
                 st.session_state.current_pick += 1
                 st.rerun()
 
-        # Added 3 columns here to neatly fit the Settings menu!
         col_sim1, col_sim2 = st.columns([1, 1.4])
         with col_sim1:
             render_clock(team_on_clock)
@@ -582,7 +587,6 @@ with st.container(key="main_layout"):
                         st.session_state.time_left = 120
                         st.rerun()
             with col_b2:
-                # Callback function to hard-save your choice the moment you click the toggle
                 def update_auto_sim():
                     st.session_state.auto_sim_preference = st.session_state.auto_sim_toggle_widget
 
@@ -592,8 +596,6 @@ with st.container(key="main_layout"):
                     key="auto_sim_toggle_widget",
                     on_change=update_auto_sim
                 )
-            
-            # The Settings Menu is now nestled perfectly on the right!
             with col_b3:
                 with st.popover("⚙️ Settings"):
                     st.markdown("### Draft Controls")
@@ -609,8 +611,6 @@ with st.container(key="main_layout"):
                         st.session_state.available_players = load_data()
                         st.rerun()
 
-        # --- THE BULLETPROOF AUTO-SIM ENGINE ---
-        # Now reads from your ironclad preference state!
         if st.session_state.auto_sim_preference and team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
             while st.session_state.current_pick <= len(DRAFT_ORDER) and DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins":
                 current_team = DRAFT_ORDER[st.session_state.current_pick - 1]
@@ -625,8 +625,6 @@ with st.container(key="main_layout"):
         st.markdown("---")
 
         # --- DUAL BOARD RENDER LOGIC ---
-
-        # Desktop Full Board HTML (Hidden on Mobile via CSS)
         desktop_html = """
         <div class='desktop-board-container' style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
         <table style='width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 11px; font-family: sans-serif;'>
@@ -637,7 +635,6 @@ with st.container(key="main_layout"):
             desktop_html += f"<th style='border: 1px solid black; padding: 4px; background-color: #f0f0f0; width: 8%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>{team}</th>"
         desktop_html += "</tr>"
 
-        # Mobile Compact Board HTML (Hidden on Desktop via CSS)
         mobile_html = """
         <div class='mobile-board-container' style='width: 100%; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 20px; overflow-x: auto;'>
         <table style='min-width: max-content; width: 100%; table-layout: fixed; border-collapse: collapse; text-align: center; font-size: 6.5px; font-family: sans-serif;'>
@@ -660,18 +657,11 @@ with st.container(key="main_layout"):
                 
                 if pick:
                     color = get_color(pick['Position'])
-                    
-                    # Desktop Cell Data
                     desktop_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 3px; line-height: 1.2; height: 45px; overflow: hidden;'><b>{pick['Player']}</b><br>{pick['Position']}</td>"
-                    
-                    # Mobile Cell Data
                     short_name = make_short_name(pick['Player'])
                     mobile_html += f"<td style='border: 1px solid black; background-color: {color}; padding: 1px; height: 22px; line-height: 1.0; overflow: hidden;'><b>{short_name}</b><br>{pick['Position']}</td>"
                 else:
-                    # Desktop Empty Cell
                     desktop_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #a0aab5; padding: 3px; height: 45px;'><i>Pick {actual_pick_num}</i></td>"
-                    
-                    # Mobile Empty Cell
                     mobile_html += f"<td style='border: 1px solid black; background-color: #ffffff; color: #b0b0b0; padding: 1px; height: 22px; font-size: 6px;'>{actual_pick_num}</td>"
                     
             desktop_html += "</tr>"
@@ -680,7 +670,6 @@ with st.container(key="main_layout"):
         desktop_html += "</table></div>"
         mobile_html += "</table></div>"
 
-        # Merge and render both strings. CSS media queries will handle which one is visible!
         st.markdown(desktop_html + mobile_html, unsafe_allow_html=True)
 
 

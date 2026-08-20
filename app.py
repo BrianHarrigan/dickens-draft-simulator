@@ -21,7 +21,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- GLOBAL STYLING (ZERO TOP SPACE & FLUSH LOGO) ---
+# --- GLOBAL STYLING (EASED TOP MARGIN SO LOGO ISN'T CLIPPED) ---
 st.markdown(
     """
     <style>
@@ -32,12 +32,12 @@ st.markdown(
         visibility: hidden !important;
     }
 
-    /* 2. Drag the entire app container to the very top edge */
+    /* 2. Adjusted top margin so the top of the logo isn't cut off */
     .main .block-container,
     [data-testid="stMainBlockContainer"],
     .block-container {
         padding-top: 0rem !important;
-        margin-top: -65px !important; /* Physically pulls the logo flush to the top */
+        margin-top: -20px !important; /* Brought down slightly to prevent clipping */
         padding-bottom: 1rem !important;
     }
 
@@ -63,7 +63,7 @@ st.markdown(
         [data-testid="stMainBlockContainer"],
         .block-container {
             padding-top: 0rem !important;
-            margin-top: -45px !important;
+            margin-top: -15px !important; /* Adjusted for mobile as well */
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
         }
@@ -272,11 +272,9 @@ if 'available_players' not in st.session_state:
 if 'time_left' not in st.session_state:
     st.session_state.time_left = 120
 
-# Permanent memory for the toggle that survives page reloads
 if 'auto_sim_preference' not in st.session_state:
     st.session_state.auto_sim_preference = True
 
-# Permanent memory for CPU Draft Strategy
 if 'cpu_draft_strategy' not in st.session_state:
     st.session_state.cpu_draft_strategy = "CBS ADP"
 

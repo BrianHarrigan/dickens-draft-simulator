@@ -21,7 +21,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- GLOBAL STYLING (EASED TOP MARGIN SO LOGO ISN'T CLIPPED) ---
+# --- GLOBAL STYLING (FINE-TUNED TOP SPACING FOR DESKTOP & MOBILE) ---
 st.markdown(
     """
     <style>
@@ -32,12 +32,12 @@ st.markdown(
         visibility: hidden !important;
     }
 
-    /* 2. Adjusted top margin so the top of the logo isn't cut off */
+    /* 2. Desktop top margin */
     .main .block-container,
     [data-testid="stMainBlockContainer"],
     .block-container {
         padding-top: 0rem !important;
-        margin-top: -20px !important; /* Brought down slightly to prevent clipping */
+        margin-top: -20px !important;
         padding-bottom: 1rem !important;
     }
 
@@ -59,11 +59,12 @@ st.markdown(
     }
 
     @media (max-width: 767px) {
+        /* Mobile: Shifted down for comfortable spacing */
         .main .block-container,
         [data-testid="stMainBlockContainer"],
         .block-container {
-            padding-top: 0rem !important;
-            margin-top: -15px !important; /* Adjusted for mobile as well */
+            padding-top: 0.5rem !important;
+            margin-top: 0px !important;
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
         }

@@ -21,7 +21,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- GLOBAL STYLING (FINE-TUNED TOP SPACING FOR DESKTOP & MOBILE) ---
+# --- GLOBAL STYLING (PERFECT MOBILE REORDERING & TOP SPACING) ---
 st.markdown(
     """
     <style>
@@ -59,7 +59,6 @@ st.markdown(
     }
 
     @media (max-width: 767px) {
-        /* Mobile: Shifted down for comfortable spacing */
         .main .block-container,
         [data-testid="stMainBlockContainer"],
         .block-container {
@@ -76,14 +75,36 @@ st.markdown(
             max-width: 300px !important;
         }
 
-        /* Reorder: Draft Board to Top (order 1), Player List below (order 2) */
-        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] {
+        /* 
+         * BULLETPROOF MOBILE REORDERING
+         * Flexible descendant selectors ensure columns always reorder properly
+         */
+        div[class*="st-key-main_layout"] [data-testid="stHorizontalBlock"],
+        .st-key-main_layout [data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
         }
-        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
-        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) { order: 1 !important; }
-        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
+        
+        /* Column 1: Available Players -> Order 2 (Below Board) */
+        div[class*="st-key-main_layout"] [data-testid="stHorizontalBlock"] > div:nth-child(1),
+        .st-key-main_layout [data-testid="stHorizontalBlock"] > div:nth-child(1) {
+            order: 2 !important;
+            width: 100% !important;
+        }
+        
+        /* Column 2: Draft Board & Clock -> Order 1 (Top of Page) */
+        div[class*="st-key-main_layout"] [data-testid="stHorizontalBlock"] > div:nth-child(2),
+        .st-key-main_layout [data-testid="stHorizontalBlock"] > div:nth-child(2) {
+            order: 1 !important;
+            width: 100% !important;
+        }
+        
+        /* Column 3: Team Roster -> Order 3 (Bottom) */
+        div[class*="st-key-main_layout"] [data-testid="stHorizontalBlock"] > div:nth-child(3),
+        .st-key-main_layout [data-testid="stHorizontalBlock"] > div:nth-child(3) {
+            order: 3 !important;
+            width: 100% !important;
+        }
 
         /* Compact player list height for mobile screens */
         div.st-key-player_list_container {

@@ -21,7 +21,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- GLOBAL STYLING (PERFECT MOBILE REORDERING & TOP SPACING) ---
+# --- GLOBAL STYLING (FLUSH TOP, BULLETPROOF REORDERING & CRISP MOBILE CARDS) ---
 st.markdown(
     """
     <style>
@@ -64,51 +64,50 @@ st.markdown(
         .block-container {
             padding-top: 0.5rem !important;
             margin-top: 0px !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
+            padding-left: 0.4rem !important;
+            padding-right: 0.4rem !important;
         }
 
         .mobile-board-container { display: block !important; }
         .desktop-board-container { display: none !important; }
 
         div[data-testid="stImage"] img {
-            max-width: 300px !important;
+            max-width: 290px !important;
         }
 
         /* 
-         * BULLETPROOF MOBILE REORDERING
-         * Flexible descendant selectors ensure columns always reorder properly
+         * SURGICAL MOBILE REORDERING 
+         * Targets ONLY the 3 top-level columns inside main_layout
          */
-        div[class*="st-key-main_layout"] [data-testid="stHorizontalBlock"],
-        .st-key-main_layout [data-testid="stHorizontalBlock"] {
+        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"],
+        div[class*="st-key-main_layout"] > div > div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
         }
-        
-        /* Column 1: Available Players -> Order 2 (Below Board) */
-        div[class*="st-key-main_layout"] [data-testid="stHorizontalBlock"] > div:nth-child(1),
-        .st-key-main_layout [data-testid="stHorizontalBlock"] > div:nth-child(1) {
-            order: 2 !important;
+        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
+            order: 2 !important; /* Player list below board */
             width: 100% !important;
         }
-        
-        /* Column 2: Draft Board & Clock -> Order 1 (Top of Page) */
-        div[class*="st-key-main_layout"] [data-testid="stHorizontalBlock"] > div:nth-child(2),
-        .st-key-main_layout [data-testid="stHorizontalBlock"] > div:nth-child(2) {
-            order: 1 !important;
+        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+            order: 1 !important; /* Draft board on top */
             width: 100% !important;
         }
-        
-        /* Column 3: Team Roster -> Order 3 (Bottom) */
-        div[class*="st-key-main_layout"] [data-testid="stHorizontalBlock"] > div:nth-child(3),
-        .st-key-main_layout [data-testid="stHorizontalBlock"] > div:nth-child(3) {
-            order: 3 !important;
+        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div:nth-child(3) {
+            order: 3 !important; /* Roster at bottom */
             width: 100% !important;
         }
 
-        /* Compact player list height for mobile screens */
+        /* Keep the board controls row horizontal on mobile (Settings next to Auto-Sim) */
+        div.st-key-board_controls_container div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            gap: 6px !important;
+        }
+
+        /* Compact player list scroll container for mobile */
         div.st-key-player_list_container {
-            height: 450px !important;
+            height: 460px !important;
         }
 
         div[data-testid="stVerticalBlock"] {
@@ -125,7 +124,7 @@ st.markdown(
 
 import streamlit.components.v1 as components
 
-# Replace default iOS icon with custom icon
+# Custom App Icon Injection
 components.html(
     """
     <script>
@@ -454,7 +453,6 @@ with st.container(key="main_layout"):
         if search_query:
             display_df = display_df[display_df['Player'].str.contains(search_query, case=False, na=False)].reset_index(drop=True)
             
-        # Matches the PC Draft Board height exactly
         with st.container(height=750, key="player_list_container"):
             normalized_targets = [normalize_name(tp) for tp in TARGET_PLAYERS]
             normalized_sleepers = [normalize_name(sp) for sp in SLEEPER_PLAYERS]
@@ -502,59 +500,67 @@ with st.container(key="main_layout"):
                 /* Default Desktop Style */
                 div.st-key-{card_key} {{
                     background-color: {card_color} !important;
-                    padding: 10px 15px !important;
+                    padding: 8px 12px !important;
                     border-radius: 8px !important;
                     border: {border_style} !important;
                     {box_shadow}
                     margin-bottom: 8px !important;
+                    height: auto !important;
+                    min-height: fit-content !important;
+                    overflow: visible !important;
                 }}
 
-                /* Mobile Style */
+                /* Mobile Card Override */
                 @media (max-width: 767px) {{
                     div.st-key-{card_key} {{
-                        padding: 4px 6px !important;
-                        margin-bottom: 2px !important;
+                        padding: 6px 8px !important;
+                        margin-bottom: 4px !important;
+                        height: auto !important;
+                        min-height: fit-content !important;
                     }}
                     
-                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] {{
+                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] {
+                        display: flex !important;
                         flex-direction: row !important;
                         align-items: center !important;
-                    }}
+                        justify-content: space-between !important;
+                    }
                     
-                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(1) {{
-                        width: 70% !important;
-                        min-width: 70% !important;
-                    }}
-                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(2) {{
-                        width: 30% !important;
-                        min-width: 30% !important;
-                    }}
+                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(1) {
+                        width: 72% !important;
+                        min-width: 72% !important;
+                    }
+                    div.st-key-{card_key} div[data-testid="stHorizontalBlock"] > div:nth-child(2) {
+                        width: 26% !important;
+                        min-width: 26% !important;
+                    }
 
-                    div.st-key-{card_key} div[style*="font-size: 12px"] {{
+                    div.st-key-{card_key} .card-text-container {
                         font-size: 10px !important;
-                        line-height: 1.2 !important;
-                        white-space: normal !important; 
-                    }}
-                    div.st-key-{card_key} b {{
+                        line-height: 1.3 !important;
+                        margin: 0px !important;
+                        word-break: break-word !important;
+                    }
+                    div.st-key-{card_key} .card-text-container b {
                         font-size: 12px !important;
-                    }}
+                    }
 
-                    div.st-key-{card_key} button {{
-                        min-height: 28px !important;
-                        height: 28px !important;
-                        padding: 0px 2px !important;
+                    div.st-key-{card_key} button {
+                        min-height: 32px !important;
+                        height: 32px !important;
+                        padding: 0px 4px !important;
                         font-size: 11px !important;
-                    }}
+                    }
                 }}
                 </style>
                 """, unsafe_allow_html=True)
                 
                 with st.container(key=card_key):
-                    c1, c2 = st.columns([3, 1])
+                    c1, c2 = st.columns([3, 1], vertical_alignment="center")
                     with c1:
                         st.markdown(f"""
-                        <div style='font-size: 12px; color: #000000; line-height: 1.4; margin-top: 4px;'>
-                            <b style='font-size: 14px;'>{row['Player']}{icons}</b> ({row['Position']} - {row['NFLTeam']})<br>
+                        <div class='card-text-container' style='font-size: 12px; color: #000000; line-height: 1.35; margin: 0px;'>
+                            <b style='font-size: 13px;'>{row['Player']}{icons}</b> ({row['Position']} - {row['NFLTeam']})<br>
                             {cbs_adp_text} ({rd}.{pk}) | {ffc_adp_text} | {rank_text}
                         </div>
                         """, unsafe_allow_html=True)
@@ -591,45 +597,48 @@ with st.container(key="main_layout"):
                 st.session_state.current_pick += 1
                 st.rerun()
 
-        col_sim1, col_sim2 = st.columns([1, 1.4])
-        with col_sim1:
-            render_clock(team_on_clock)
-        with col_sim2:
-            col_b1, col_b2, col_b3 = st.columns([1, 1, 1], vertical_alignment="center")
-            with col_b1:
-                if team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
-                    if st.button("🤖 Sim Pick", use_container_width=True):
-                        cpu_selection = execute_cpu_pick(team_on_clock, st.session_state.current_pick)
-                        draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": team_on_clock, **cpu_selection.to_dict()}
-                        st.session_state.draft_history.append(draft_item)
-                        st.session_state.available_players = st.session_state.available_players[st.session_state.available_players['Rank'] != cpu_selection['Rank']].reset_index(drop=True)
-                        st.session_state.current_pick += 1
-                        st.session_state.time_left = 120
-                        st.rerun()
-            with col_b2:
-                def update_auto_sim():
-                    st.session_state.auto_sim_preference = st.session_state.auto_sim_toggle_widget
+        # Board Controls Container
+        with st.container(key="board_controls_container"):
+            col_sim1, col_sim2 = st.columns([1, 1.4], vertical_alignment="center")
+            with col_sim1:
+                render_clock(team_on_clock)
+            with col_sim2:
+                # Sim Pick, Settings, and Auto-Sim
+                col_b1, col_b2, col_b3 = st.columns([1, 1, 1.1], vertical_alignment="center")
+                with col_b1:
+                    if team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
+                        if st.button("🤖 Sim", use_container_width=True):
+                            cpu_selection = execute_cpu_pick(team_on_clock, st.session_state.current_pick)
+                            draft_item = {"Pick": st.session_state.current_pick, "FantasyTeam": team_on_clock, **cpu_selection.to_dict()}
+                            st.session_state.draft_history.append(draft_item)
+                            st.session_state.available_players = st.session_state.available_players[st.session_state.available_players['Rank'] != cpu_selection['Rank']].reset_index(drop=True)
+                            st.session_state.current_pick += 1
+                            st.session_state.time_left = 120
+                            st.rerun()
+                with col_b2:
+                    with st.popover("⚙️ Settings"):
+                        st.markdown("### Draft Controls")
+                        st.selectbox(
+                            "CPU Draft Board Strategy",
+                            options=["CBS ADP", "CBS Consensus Rankings", "FFC ADP"],
+                            key="cpu_draft_strategy"
+                        )
+                        st.write("Wipe the board and start a new mock draft.")
+                        if st.button("🧨 Reset Draft", use_container_width=True):
+                            st.session_state.draft_history = []
+                            st.session_state.current_pick = 1
+                            st.session_state.available_players = load_data()
+                            st.rerun()
+                with col_b3:
+                    def update_auto_sim():
+                        st.session_state.auto_sim_preference = st.session_state.auto_sim_toggle_widget
 
-                st.toggle(
-                    "Auto-Sim", 
-                    value=st.session_state.auto_sim_preference, 
-                    key="auto_sim_toggle_widget",
-                    on_change=update_auto_sim
-                )
-            with col_b3:
-                with st.popover("⚙️ Settings"):
-                    st.markdown("### Draft Controls")
-                    st.selectbox(
-                        "CPU Draft Board Strategy",
-                        options=["CBS ADP", "CBS Consensus Rankings", "FFC ADP"],
-                        key="cpu_draft_strategy"
+                    st.toggle(
+                        "Auto-Sim", 
+                        value=st.session_state.auto_sim_preference, 
+                        key="auto_sim_toggle_widget",
+                        on_change=update_auto_sim
                     )
-                    st.write("Wipe the board and start a new mock draft.")
-                    if st.button("🧨 Reset Draft", use_container_width=True):
-                        st.session_state.draft_history = []
-                        st.session_state.current_pick = 1
-                        st.session_state.available_players = load_data()
-                        st.rerun()
 
         if st.session_state.auto_sim_preference and team_on_clock != "Slampigskins" and team_on_clock != "Draft Complete":
             while st.session_state.current_pick <= len(DRAFT_ORDER) and DRAFT_ORDER[st.session_state.current_pick - 1] != "Slampigskins":

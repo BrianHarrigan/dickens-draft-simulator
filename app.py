@@ -24,9 +24,11 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* 1. Remove excess top page padding */
+    /* 1. Remove excess top page padding completely */
+    header { display: none !important; } /* Kills the empty Streamlit header bar */
     .main .block-container {
-        padding-top: 0.5rem !important;
+        padding-top: 0rem !important;
+        margin-top: -30px !important;
         padding-bottom: 1rem !important;
     }
 
@@ -38,8 +40,8 @@ st.markdown(
     div[data-testid="stImage"] {
         display: flex;
         justify-content: center;
-        margin-top: -20px;
-        margin-bottom: 20px;
+        margin-top: -10px !important;
+        margin-bottom: 20px !important;
     }
     div[data-testid="stImage"] img {
         max-width: 450px !important;
@@ -53,14 +55,17 @@ st.markdown(
             max-width: 320px !important;
         }
 
-        /* Reorder: Draft Board to Top (order 1), Player List below (order 2) */
-        div.st-key-main_layout > div[data-testid="stHorizontalBlock"] {
+        /* 
+         * BULLETPROOF MOBILE REORDERING 
+         * Uses strict Streamlit DOM targets to force the Draft Board to the top
+         */
+        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] {
             display: flex !important;
             flex-direction: column !important;
         }
-        div.st-key-main_layout > div[data-testid="stHorizontalBlock"] > div:nth-child(1) { order: 2 !important; }
-        div.st-key-main_layout > div[data-testid="stHorizontalBlock"] > div:nth-child(2) { order: 1 !important; }
-        div.st-key-main_layout > div[data-testid="stHorizontalBlock"] > div:nth-child(3) { order: 3 !important; }
+        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(1) { order: 2 !important; }
+        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) { order: 1 !important; }
+        div.st-key-main_layout > div > div[data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(3) { order: 3 !important; }
 
         /* Compact player list height for mobile screens */
         div.st-key-player_list_container {
@@ -107,7 +112,7 @@ st.markdown(
     <style>
         @media (max-width: 768px) {
             .main .block-container {
-                padding: 1rem 0.5rem !important;
+                padding: 0.5rem 0.5rem !important;
             }
             button {
                 min-height: 44px !important;
@@ -259,7 +264,6 @@ if 'auto_sim_preference' not in st.session_state:
 if 'cpu_draft_strategy' not in st.session_state:
     st.session_state.cpu_draft_strategy = "CBS ADP"
 
-
 def execute_cpu_pick(team_name, current_pick_num):   
     df_avail = st.session_state.available_players.copy()
  
@@ -381,7 +385,7 @@ def execute_cpu_pick(team_name, current_pick_num):
         
     chosen_index = random.choices(range(len(scores)), weights=scores, k=1)[0]
     return top_candidates.iloc[chosen_index]
-    
+
 # --- CENTRALLY DISPLAY THE LOGO ---
 st.image("static/slamulator_logo.jfif")
 
